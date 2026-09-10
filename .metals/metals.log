@@ -164,3 +164,124 @@ WARNING: Unmatched cancel notification for request id 202
 2026.09.10 11:45:19 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
 2026.09.10 11:45:58 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
 2026.09.10 11:45:58 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:47:45 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:16 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:16 WARN  no build target for: C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java
+2026.09.10 11:48:16 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:16 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:17 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:17 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:18 WARN  Running javac-semanticdb failed for file:///C:/Users/ander/Desktop/MSc_CS/How%20to%20build%20Data%20Systems/src/test/java/dk/itu/datasys/EngineTest.java. Output:
+
+2026.09.10 11:48:18 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:18 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:19 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:18 INFO  Created report: Optional[file:///C:/Users/ander/Desktop/MSc_CS/How%20to%20build%20Data%20Systems/src/test/java/dk/itu/datasys/EngineTest.java]
+2026.09.10 11:48:18 INFO  empty definition using pc, found symbol in pc: _empty_/Test# (full report at: "C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\.metals\.reports\metals-full\2026-09-10\r_empty-definition_11-48-19-075.md")
+2026.09.10 11:48:19 INFO  Created report: Optional[file:///C:/Users/ander/Desktop/MSc_CS/How%20to%20build%20Data%20Systems/src/test/java/dk/itu/datasys/EngineTest.java]
+2026.09.10 11:48:19 INFO  empty definition using pc, found symbol in pc: dk/itu/datasys/EngineTest#assertEquals# (full report at: "C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\.metals\.reports\metals-full\2026-09-10\r_empty-definition_11-48-19-096.md")
+2026.09.10 11:48:18 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:18 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:18 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:20 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:20 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:20 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:20 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:21 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:21 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:21 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:22 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:22 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:22 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:22 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:22 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+Sep 10, 2026 11:48:23 AM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 268
+Sep 10, 2026 11:48:23 AM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 269
+2026.09.10 11:48:22 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:22 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:23 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:23 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:23 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+Sep 10, 2026 11:48:23 AM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 272
+2026.09.10 11:48:23 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:23 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:24 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:24 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:24 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:24 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:25 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:25 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:25 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:25 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:30 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:30 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:30 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:30 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:31 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:32 WARN  no build target for: C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java
+2026.09.10 11:48:32 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:32 WARN  Running javac-semanticdb failed for file:///C:/Users/ander/Desktop/MSc_CS/How%20to%20build%20Data%20Systems/src/test/java/dk/itu/datasys/EngineTest.java. Output:
+
+2026.09.10 11:48:40 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:40 WARN  no build target for: C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java
+2026.09.10 11:48:41 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+Sep 10, 2026 11:48:41 AM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 301
+2026.09.10 11:48:40 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:41 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:41 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:41 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:41 WARN  Running javac-semanticdb failed for file:///C:/Users/ander/Desktop/MSc_CS/How%20to%20build%20Data%20Systems/src/main/java/dk/itu/datasys/Engine.java. Output:
+
+2026.09.10 11:48:42 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:41 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+Sep 10, 2026 11:48:42 AM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 314
+2026.09.10 11:48:43 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:43 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:43 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:43 WARN  no build target for: C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java
+2026.09.10 11:48:43 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\main\java\dk\itu\datasys\Engine.java. Using fallback presentation compiler.
+2026.09.10 11:48:43 WARN  Running javac-semanticdb failed for file:///C:/Users/ander/Desktop/MSc_CS/How%20to%20build%20Data%20Systems/src/main/java/dk/itu/datasys/Engine.java. Output:
+
+2026.09.10 11:48:44 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:44 WARN  no build target for: C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java
+Sep 10, 2026 11:48:44 AM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 323
+2026.09.10 11:48:44 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:44 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:44 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:48:46 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:05 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:05 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:05 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:08 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:08 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:08 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:08 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:08 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:09 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:08 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:09 WARN  no build target for: C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java
+2026.09.10 11:49:09 WARN  Running javac-semanticdb failed for file:///C:/Users/ander/Desktop/MSc_CS/How%20to%20build%20Data%20Systems/src/test/java/dk/itu/datasys/EngineTest.java. Output:
+
+2026.09.10 11:49:09 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:25 WARN  no build target for: C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java
+2026.09.10 11:49:25 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:28 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:28 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:28 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:28 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:28 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+Sep 10, 2026 11:49:29 AM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 353
+2026.09.10 11:49:28 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:29 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:28 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:30 WARN  no build target for: C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java
+2026.09.10 11:49:30 INFO  no build target found for C:\Users\ander\Desktop\MSc_CS\How to build Data Systems\src\test\java\dk\itu\datasys\EngineTest.java. Using fallback presentation compiler.
+2026.09.10 11:49:30 WARN  Running javac-semanticdb failed for file:///C:/Users/ander/Desktop/MSc_CS/How%20to%20build%20Data%20Systems/src/test/java/dk/itu/datasys/EngineTest.java. Output:
+

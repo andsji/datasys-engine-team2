@@ -8,9 +8,4 @@ class EngineTest {
     void teamName() {
         assertEquals("team2", new Engine().teamName());
     }
-
-    @Test
-    void teamNameFails() {
-        assertEquals("Team team2", new Engine().teamName());
-    }
 }
