@@ -9,21 +9,20 @@ The catalog contains a schema per table, including the column names & types. It 
 
 # 3. Where the min/max summaries live
 
-A header at the front for each column in each partition (check with Martin/TA). We feel this is most convenient and also the easiest for us to understand.
+In the catalog file, per partition.
 
 # 4. Restart
 *What does a fresh StorageEngine on the same directory have to read before it can answer a select ?*
 
-The min/max of the partitions. 
+The catalog JSON file.
 
 # 5. Layout inside a partition
 
-DSM tuple storage per partition. This makes sense for an OLAP engine (which we are building as per week 1 slides). 
+Row-by-row NSM tuple storage, since it is the easiest.
 
 # 6. Partition size
 
-Default: 1000 rows per partition. Arbitrary number, since we don’t really know the potential size of the database.
-
+Default: 1000 rows per partition. 
 
 # 7. Value encodings and framing
 
