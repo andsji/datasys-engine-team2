@@ -8,29 +8,21 @@ The catalog contains a schema per table, including the column names & types. It 
 
 
 # 3. Where the min/max summaries live
-*The requirement is only that they exist per column per partition and that select can consult them without reading the column data they describe.
-Three designs are defensible. 
-A footer after the data is Parquet's choice and is natural for a single-pass writer. 
-A header at the front is convenient for the reader, but the writer must buffer the partition or seek back to fill it in. 
-In the catalog only means that pruning needs no data-file I/O at all, as in Snowflake and Iceberg, but a data file is then no longer self-describing. 
-Pick one and justify it.*
 
-A header at the front for each column in each partition (check with Martin/TA)
-
+A header at the front for each column in each partition (check with Martin/TA). We feel this is most convenient and also the easiest for us to understand.
 
 # 4. Restart
 *What does a fresh StorageEngine on the same directory have to read before it can answer a select ?*
 
 The min/max of the partitions. 
 
-
 # 5. Layout inside a partition
 
-Following NSM-tuple format (row-wise). We want to focus on OLTP queries. 
+DSM tuple storage per partition. This makes sense for an OLAP engine (which we are building as per week 1 slides). 
 
 # 6. Partition size
 
-Default: 100 rows per partition. Arbitrary number, since we don’t really know the potential size of the database.
+Default: 1000 rows per partition. Arbitrary number, since we don’t really know the potential size of the database.
 
 
 # 7. Value encodings and framing
