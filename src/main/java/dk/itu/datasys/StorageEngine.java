@@ -88,57 +88,61 @@ public class StorageEngine {
         }
     }
 
-    private static final class Catalog {
-        @JsonProperty("tables")
-        private Map<String, TableDefinition> tables = new LinkedHashMap<>();
+    Catalog testCatalog() {
+        return catalogFile;
+    }
 
-        private Catalog() {
+    public static final class Catalog {
+        @JsonProperty("tables")
+        public Map<String, TableDefinition> tables = new LinkedHashMap<>();
+
+        public Catalog() {
         }
     }
 
-    private static final class TableDefinition {
+    public static final class TableDefinition {
         @JsonProperty("columns")
-        private List<ColumnSpec> columns;
+        public List<ColumnSpec> columns;
 
         @JsonProperty("dataFile")
-        private String dataFile;
+        public String dataFile;
 
         @JsonProperty("partitions")
-        private List<PartitionDefinition> partitions = new ArrayList<>();
+        public List<PartitionDefinition> partitions = new ArrayList<>();
 
-        private TableDefinition() {
+        public TableDefinition() {
         }
 
-        private TableDefinition(List<ColumnSpec> columns) {
+        public TableDefinition(List<ColumnSpec> columns) {
             this.columns = new ArrayList<>(columns);
         }
     }
 
-    private static final class PartitionDefinition {
+    public static final class PartitionDefinition {
         @JsonProperty("offset")
-        private long offset;
+        public long offset;
 
         @JsonProperty("rowCount")
-        private int rowCount;
+        public int rowCount;
 
         @JsonProperty("columns")
-        private Map<String, ColumnStats> columns = new LinkedHashMap<>();
+        public Map<String, ColumnStats> columns = new LinkedHashMap<>();
 
-        private PartitionDefinition() {
+        public PartitionDefinition() {
         }
     }
 
-    private static final class ColumnStats {
+    public static final class ColumnStats {
         @JsonProperty("min")
-        private JsonNode min;
+        public JsonNode min;
 
         @JsonProperty("max")
-        private JsonNode max;
+        public JsonNode max;
 
-        private ColumnStats() {
+        public ColumnStats() {
         }
 
-        private ColumnStats(JsonNode min, JsonNode max) {
+        public ColumnStats(JsonNode min, JsonNode max) {
             this.min = min;
             this.max = max;
         }
@@ -231,7 +235,7 @@ public class StorageEngine {
         return row;
     }
 
-        private long writePartition(DataOutputStream output, List<Object[]> rows, String tableName,
+        public long writePartition(DataOutputStream output, List<Object[]> rows, String tableName,
             List<ColumnSpec> columns, List<PartitionDefinition> partitions, long offset)
             throws IOException {
         PartitionDefinition partition = new PartitionDefinition();
@@ -395,7 +399,7 @@ public class StorageEngine {
         return result;
     }
 
-    private int findColumnIndex(List<ColumnSpec> columns, String columnName) {
+    public int findColumnIndex(List<ColumnSpec> columns, String columnName) {
         for (int index = 0; index < columns.size(); index++) {
             if (Objects.equals(columns.get(index).name(), columnName)) {
                 return index;
@@ -404,7 +408,7 @@ public class StorageEngine {
         return -1;
     }
 
-    private void validateConstant(ColumnType type, Object constant) {
+    public void validateConstant(ColumnType type, Object constant) {
         boolean valid = switch (type) {
             case STRING -> constant instanceof String;
             case LONG -> constant instanceof Long;
@@ -425,7 +429,7 @@ public class StorageEngine {
         };
     }
 
-    private void readPartition(RandomAccessFile input, PartitionDefinition partition,
+    public void readPartition(RandomAccessFile input, PartitionDefinition partition,
             List<ColumnSpec> columns, int predicateColumnIndex, ColumnType predicateType,
             Comparison comparison, Object constant, List<Object[]> result) throws IOException {
         input.seek(partition.offset);
