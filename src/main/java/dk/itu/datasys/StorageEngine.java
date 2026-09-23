@@ -265,7 +265,7 @@ public class StorageEngine {
         return bytesWritten;
     }
 
-    long writeValue(DataOutputStream output, ColumnType type, Object value) throws IOException {
+    static long writeValue(DataOutputStream output, ColumnType type, Object value) throws IOException {
         return switch (type) {
             case STRING -> {
                 byte[] bytes = ((String) value).getBytes(StandardCharsets.US_ASCII);
@@ -444,7 +444,7 @@ public class StorageEngine {
         }
     }
 
-    Object readValue(RandomAccessFile input, ColumnType type) throws IOException {
+    static Object readValue(RandomAccessFile input, ColumnType type) throws IOException {
         return switch (type) {
             case STRING -> {
                 int length = input.readInt();
