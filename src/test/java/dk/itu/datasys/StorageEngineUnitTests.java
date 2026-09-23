@@ -31,69 +31,81 @@ class StorageEngineUnitTests {
     void valueEncodingRoundTripsEachColumnType() throws Exception {
         Path tempFile = dataDirectory.resolve("temp.bin");
         
-        DataOutputStream out = new DataOutputStream(Files.newOutputStream(tempFile));
+        try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(tempFile))) {
 
-        StorageEngine.writeValue(out, ColumnType.STRING, "Aarhus");
-        StorageEngine.writeValue(out, ColumnType.LONG, -42L);
-        StorageEngine.writeValue(out, ColumnType.DOUBLE, 23.5);
+            StorageEngine.writeValue(out, ColumnType.STRING, "Aarhus");
+            StorageEngine.writeValue(out, ColumnType.LONG, -42L);
+            StorageEngine.writeValue(out, ColumnType.DOUBLE, 23.5);
+        }
 
-        RandomAccessFile in = new RandomAccessFile(tempFile.toString(), "r");
+        try (RandomAccessFile in = new RandomAccessFile(tempFile.toString(), "r")) {
 
-        assertEquals(StorageEngine.readValue(in, ColumnType.STRING), "Aarhus");
-        assertEquals(StorageEngine.readValue(in, ColumnType.LONG), -42L);
-        assertEquals(StorageEngine.readValue(in, ColumnType.DOUBLE), 23.5);
+            assertEquals(StorageEngine.readValue(in, ColumnType.STRING), "Aarhus");
+            assertEquals(StorageEngine.readValue(in, ColumnType.LONG), -42L);
+            assertEquals(StorageEngine.readValue(in, ColumnType.DOUBLE), 23.5);
+        }
     }   
 
     @Test
     void minMaxHandlesSingleNegativeAndStringValues() throws Exception {
+
         StorageEngine engine = new StorageEngine(dataDirectory);
-        List<StorageEngine.PartitionDefinition> partitions = new ArrayList<>();
 
         // Only two columns needed for this test
-        List<ColumnSpec> columns = List.of(new ColumnSpec("city", ColumnType.STRING),
-                new ColumnSpec("distance", ColumnType.LONG));
-
-        List<Object[]> row1 = List.<Object[]> of (new Object[] { "Aarhus", 10L });
+        List<ColumnSpec> columns = List.of(
+            new ColumnSpec("city", ColumnType.STRING),
+            new ColumnSpec("distance", ColumnType.LONG));
 
         engine.createTable("trips", columns);
-        DataOutputStream out = new DataOutputStream(Files.newOutputStream(dataDirectory.resolve("trips.bin")));
-        
-        // Add one data entry to engine
-        engine.writePartition(out, row1, "trips", columns, partitions, (long) 0);
-        
-        StorageEngine.TableDefinition td = engine.testCatalog().tables.get("trips");
-        // Check only 1 partition exists
-        assertEquals(1, td.partitions.size());
 
-        //Check min/max is the same for single-value cases
-        Object min = td.partitions.get(0).columns.get("city").min.asText();
-        Object max = td.partitions.get(0).columns.get("city").max.asText();
-        assertEquals("Aarhus", min);
-        assertEquals("Aarhus", max);
+        StorageEngine.TableDefinition table =
+            engine.testCatalog().tables.get("trips");
 
-        //Check min/max with several values
-        List<Object[]> row2 = List.<Object[]> of (new Object[] { "Copenhagen", 10L }, 
-                new Object[] { "Odense", 100L }, new Object[] { "Aalborg", 50L });
-        
-        engine.writePartition(out, row2, "trips", columns, partitions, (long) 0);
-        td = engine.testCatalog().tables.get("trips");
+        List<Object[]> singleRow = List.<Object[]>of(
+            new Object[] { "Aarhus", 10L });
 
-        min = td.partitions.get(0).columns.get("distance").min.asLong();
-        max = td.partitions.get(0).columns.get("distance").max.asLong();
+        List<Object[]> multipleRows = List.<Object[]>of(
+            new Object[] { "Copenhagen", 10L },
+            new Object[] { "Odense", 100L },
+            new Object[] { "Aalborg", 50L });
 
-        assertEquals(10L, min);
-        assertEquals(100L, max);
+        List<Object[]> negativeRow = List.<Object[]>of(
+            new Object[] { "Copenhagen", -42L });
 
-        //Check for negative long value case
-        List<Object[]> row3 = List.<Object[]> of (new Object[] { "Copenhagen", -42L });
-        
-        engine.writePartition(out, row3, "trips", columns, partitions, (long) 0);
-        td = engine.testCatalog().tables.get("trips");
+        try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(dataDirectory.resolve("temp.bin")))) {
 
-        min = td.partitions.get(0).columns.get("distance").min.asLong();
+            long offset = engine.writePartition(out, singleRow, "trips", columns, table.partitions, 0L);
 
-        assertEquals(-42L, min);
+            // Check only 1 partition exists
+            assertEquals(1, table.partitions.size());
+            
+            //Check min/max is the same for single-value cases
+            assertEquals("Aarhus",
+                table.partitions.get(0).columns.get("city").min.asText());
+            assertEquals("Aarhus",
+                table.partitions.get(0).columns.get("city").max.asText());
+
+            int multiplePartitionIndex = table.partitions.size();
+            offset = engine.writePartition(out, multipleRows, "trips", columns, table.partitions, offset);
+
+            //Check min/max with several values
+            assertEquals(10L, table.partitions.get(multiplePartitionIndex)
+                .columns.get("distance").min.asLong());
+            assertEquals(100L, table.partitions.get(multiplePartitionIndex)
+                .columns.get("distance").max.asLong());
+
+            int negativePartitionIndex = table.partitions.size();
+            engine.writePartition(
+                out, negativeRow, "trips", columns, table.partitions, offset);
+
+            //Check for negative long value case
+            assertEquals(-42L, table.partitions.get(negativePartitionIndex)
+                .columns.get("distance").min.asLong());
+            assertEquals(-42L, table.partitions.get(negativePartitionIndex)
+                .columns.get("distance").max.asLong());
+        }
     }
+    
 
     @Test
     void pruningDecisionCoversEveryComparison() throws Exception {
