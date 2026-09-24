@@ -80,6 +80,15 @@ public class StorageEngine {
         persistCatalog();
     }
 
+    /** The table's schema, in column order. */
+    public List<ColumnSpec> schema(String tableName) {
+        TableDefinition table = catalogFile.tables.get(tableName);
+        if (table == null) {
+            throw new IllegalArgumentException("Unknown table: " + tableName);
+        }
+        return List.copyOf(table.columns);
+    }
+
     private void persistCatalog() {
         try {
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(catalogPath.toFile(), catalogFile);
