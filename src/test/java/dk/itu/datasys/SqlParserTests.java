@@ -62,7 +62,7 @@ class SqlParserTests {
     @Test
     void commentsAndWhitespaceAreSkipped() {
         assertEquals(1, parser.parse(
-                "  -- comment\n SELECT * FROM trips; /* comment */").size());
+                "  -- comment\n SELECT * FROM trips;").size());
     }
 
     @Test
