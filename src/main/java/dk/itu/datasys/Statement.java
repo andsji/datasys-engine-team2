@@ -18,4 +18,4 @@ public static record SelectStatement(String tableName, Optional<Predicate> where
         implements Statement { }
 
 public static record Predicate(String columnName, Comparison comparison, Object constant) { }
-    }
+}
