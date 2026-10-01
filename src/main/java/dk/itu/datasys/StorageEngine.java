@@ -457,6 +457,37 @@ public class StorageEngine {
         }
     }
 
+    public List<Object[]> readPartitionRows(String tableName, PartitionDefinition partition) {
+        TableDefinition table = catalogFile.tables.get(tableName);
+        if (table == null) {
+            throw new IllegalArgumentException("Unknown table: " + tableName);
+        }
+        if (table.dataFile == null) {
+            return List.of();
+        }
+
+        Path dataFile = dataDirectory.resolve(table.dataFile);
+        List<Object[]> rows = new ArrayList<>(partition.rowCount);
+        try (RandomAccessFile input = new RandomAccessFile(dataFile.toFile(), "r")) {
+            validateFileHeader(input, dataFile);
+            input.seek(partition.offset);
+            int rowCount = input.readInt();
+            if (rowCount != partition.rowCount) {
+                throw new IllegalStateException("Partition row count does not match catalog");
+            }
+            for (int rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                Object[] row = new Object[table.columns.size()];
+                for (int columnIndex = 0; columnIndex < table.columns.size(); columnIndex++) {
+                    row[columnIndex] = readValue(input, table.columns.get(columnIndex).type());
+                }
+                rows.add(row);
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not read data file " + dataFile, exception);
+        }
+        return rows;
+    }
+
     static Object readValue(RandomAccessFile input, ColumnType type) throws IOException {
         return switch (type) {
             case STRING -> {
