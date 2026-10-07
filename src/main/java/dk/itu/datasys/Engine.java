@@ -3,27 +3,20 @@ package dk.itu.datasys;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 public final class Engine {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Engine.class);
 
     public static void main(String[] args) {
-
-        MDC.put("sessionId", UUID.randomUUID().toString());
-        MDC.put("statementNumber", "0");
         LOGGER.debug("engine started");
 
         if (args.length == 0) {
             System.out.println(teamName());
             System.out.println("Usage: engine \"SQL statement\" | engine -f <script.sql>");
-            LOGGER.debug("engine stopped");
-            MDC.clear();
             return;
         }
 
@@ -52,7 +45,6 @@ public final class Engine {
             System.exit(1);
         } finally{
             LOGGER.debug("engine stopped");
-            MDC.clear();
         }
     }
 

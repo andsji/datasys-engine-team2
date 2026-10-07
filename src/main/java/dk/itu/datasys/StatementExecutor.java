@@ -3,6 +3,12 @@ package dk.itu.datasys;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.Executor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import dk.itu.datasys.Statement.CopyStatement;
 import dk.itu.datasys.Statement.CreateTableStatement;
@@ -14,6 +20,7 @@ public final class StatementExecutor {
     private final Binder binder;
     private final Planner planner;
     private final SqlParser parser;
+    private static final Logger LOGGER = LoggerFactory.getLogger(Executor.class);
 
     public StatementExecutor(StorageEngine storageEngine) {
         this.storageEngine = Objects.requireNonNull(storageEngine, "storageEngine");
@@ -23,11 +30,25 @@ public final class StatementExecutor {
     }
 
     public List<ExecutionResult> execute(String sqlText) {
+        MDC.put("sessionId", UUID.randomUUID().toString());
+        MDC.put("statementNumber", "0");
+        
+        try{
+        int statementNumber = 0;
         List<ExecutionResult> results = new ArrayList<>();
         for (Statement statement : parser.parse(sqlText)) {
             results.add(new ExecutionResult(statement, execute(statement)));
+            LOGGER.debug("statement={}", statement);
+            statementNumber++;
+            MDC.put("statementNumber", String.valueOf(statementNumber));
         }
-        return List.copyOf(results);
+            return List.copyOf(results);
+        } finally {
+            MDC.put("statementNumber", "0");
+            LOGGER.debug("engine stopped");
+            MDC.clear();
+        }
+        
     }
 
     public List<Object[]> execute(Statement statement) {
