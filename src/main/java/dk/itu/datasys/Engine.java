@@ -1,37 +1,72 @@
 package dk.itu.datasys;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import dk.itu.datasys.Specifications.ColumnSpec;
-import dk.itu.datasys.Specifications.ColumnType;
-import dk.itu.datasys.Specifications.Comparison;
-
-import dk.itu.datasys.SqlParser;
-
 public final class Engine {
 
-    public static void main(String[] args) throws URISyntaxException, IOException {
-        SqlPrinter sqlPrinter = new SqlPrinter();
-        SqlParser sqlParser = new SqlParser();
+    private static final Logger LOGGER = LoggerFactory.getLogger(Engine.class);
 
-        Path sqlSubsetPath = Paths.get(
-            "src", "test", "resources", "sql_subset_w3.csv");
+    public static void main(String[] args) {
+        LOGGER.debug("engine started");
 
-        String sql = Files.readString(sqlSubsetPath, StandardCharsets.UTF_8);
-        
-        List<Statement> statements = sqlParser.parse(sql);
-
-        for (Statement statement : statements) {
-            System.out.println(sqlPrinter.print(statement));
+        if (args.length == 0) {
+            System.out.println(teamName());
+            System.out.println("Usage: engine \"SQL statement\" | engine -f <script.sql>");
+            return;
         }
+
+        try {
+            String sql;
+            if (args.length == 1) {
+                sql = args[0];
+            } else if (args.length == 2 && args[0].equals("-f")) {
+                sql = Files.readString(Path.of(args[1]), StandardCharsets.UTF_8);
+            } else {
+                throw new IllegalArgumentException(
+                        "Expected one SQL statement or -f followed by a SQL script path");
+            }
+
+            StatementExecutor executor = new StatementExecutor(new StorageEngine(Path.of("data")));
+            for (StatementExecutor.ExecutionResult result : executor.execute(sql)) {
+                if (result.statement() instanceof Statement.SelectStatement) {
+                    for (Object[] row : result.rows()) {
+                        printCsvRow(row);
+                    }
+                }
+            }
+        } catch (Exception exception) {
+            String message = exception.getMessage();
+            System.err.println("Error: " + (message == null ? exception.getClass().getSimpleName() : message));
+            System.exit(1);
+        } finally{
+            LOGGER.debug("engine stopped");
+        }
+    }
+
+    private static void printCsvRow(Object[] row) {
+        for (int index = 0; index < row.length; index++) {
+            if (index > 0) {
+                System.out.print(',');
+            }
+            String value = String.valueOf(row[index]);
+            if (value.indexOf(',') >= 0 || value.indexOf('"') >= 0
+                    || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
+                System.out.print('"');
+                System.out.print(value.replace("\"", "\"\""));
+                System.out.print('"');
+            } else {
+                System.out.print(value);
+            }
+        }
+        System.out.println();
+    }
+
+    static String teamName(){
+        return "Team 2";
     }
 }

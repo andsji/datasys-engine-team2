@@ -16,6 +16,8 @@ import org.slf4j.LoggerFactory;
 
 
 import dk.itu.datasys.Specifications.*;
+import dk.itu.datasys.Statement.Predicate;
+import dk.itu.datasys.Statement.SelectStatement;
 
 public class StorageEngine {
 
@@ -87,6 +89,19 @@ public class StorageEngine {
             throw new IllegalArgumentException("Unknown table: " + tableName);
         }
         return List.copyOf(table.columns);
+    }
+
+    TableDefinition tableDefinition(String tableName) {
+        TableDefinition table = catalogFile.tables.get(tableName);
+        if (table == null) {
+            throw new IllegalArgumentException("Unknown table: " + tableName);
+        }
+        return table;
+    }
+
+    void recordScanStats(int partitionsTotal, int partitionsRead) {
+        lastScanStats = new ScanStats(partitionsTotal, partitionsRead,
+                partitionsTotal - partitionsRead);
     }
 
     private void persistCatalog() {
@@ -352,60 +367,12 @@ public class StorageEngine {
         return lastScanStats;
     }
     
-    public List<Object[]> select(String tableName, String columnName, Comparison comparison, Object constant) { 
-        long startNanos = System.nanoTime();
-        TableDefinition table = catalogFile.tables.get(tableName);
-        if (table == null) {
-            throw new IllegalArgumentException("Unknown table: " + tableName);
-        }
-        int columnIndex = findColumnIndex(table.columns, columnName);
-        if (columnIndex < 0) {
-            throw new IllegalArgumentException("Unknown column: " + columnName);
-        }
+    public List<Object[]> select(String tableName, String columnName, Comparison comparison, Object constant) {
         if (comparison == null) {
             throw new IllegalArgumentException("Comparison must not be null");
         }
-        ColumnType columnType = table.columns.get(columnIndex).type();
-        validateConstant(columnType, constant);
-
-        int partitionsRead = 0;
-        int partitionsPruned = 0;
-        List<Object[]> result = new ArrayList<>();
-        if (table.dataFile != null) {
-            Path dataFile = dataDirectory.resolve(table.dataFile);
-            try (RandomAccessFile input = new RandomAccessFile(dataFile.toFile(), "r")) {
-                validateFileHeader(input, dataFile);
-                for (int partitionIndex = 0; partitionIndex < table.partitions.size(); partitionIndex++) {
-                    PartitionDefinition partition = table.partitions.get(partitionIndex);
-                    ColumnStats stats = partition.columns.get(columnName);
-                    if (stats == null) {
-                        throw new IllegalStateException("Missing statistics for column " + columnName);
-                    }
-                    Object min = jsonValue(stats.min, columnType);
-                    Object max = jsonValue(stats.max, columnType);
-                    boolean pruned = cannotMatch(columnType, comparison, constant, min, max);
-                    LOGGER.debug("table={} column={} comparison={} const={} partition={} min={} max={} decision={}",
-                            logValue(tableName), logValue(columnName), comparison, logValue(constant),
-                            partitionIndex, logValue(min), logValue(max), pruned ? "PRUNED" : "READ");
-                    if (pruned) {
-                        partitionsPruned++;
-                    } else {
-                        partitionsRead++;
-                        readPartition(input, partition, table.columns, columnIndex, columnType,
-                                comparison, constant, result);
-                    }
-                }
-            } catch (IOException exception) {
-                throw new IllegalStateException("Could not read data file " + dataFile, exception);
-            }
-        }
-
-        lastScanStats = new ScanStats(table.partitions.size(), partitionsRead, partitionsPruned);
-        LOGGER.debug("table={} column={} comparison={} const={} partitionsRead={} partitionsPruned={} rowsOut={} durationMs={}",
-                logValue(tableName), logValue(columnName), comparison, logValue(constant),
-                partitionsRead, partitionsPruned, result.size(),
-                (System.nanoTime() - startNanos) / 1_000_000);
-        return result;
+        return new StatementExecutor(this).execute(new Statement.SelectStatement(tableName,
+                Optional.of(new Statement.Predicate(columnName, comparison, constant))));
     }
 
     public int findColumnIndex(List<ColumnSpec> columns, String columnName) {
@@ -513,7 +480,7 @@ public class StorageEngine {
         };
     }
 
-    private Object jsonValue(JsonNode value, ColumnType type) {
+    Object jsonValue(JsonNode value, ColumnType type) {
         return switch (type) {
             case STRING -> value.textValue();
             case LONG -> value.longValue();
@@ -527,7 +494,7 @@ public class StorageEngine {
         }
     }
 
-    private String logValue(Object value) {
+    String logValue(Object value) {
         return String.valueOf(value).replace(',', '_');
     }
 }
