@@ -37,10 +37,10 @@ public final class StatementExecutor {
         int statementNumber = 0;
         List<ExecutionResult> results = new ArrayList<>();
         for (Statement statement : parser.parse(sqlText)) {
-            results.add(new ExecutionResult(statement, execute(statement)));
-            LOGGER.debug("statement={}", statement);
             statementNumber++;
             MDC.put("statementNumber", String.valueOf(statementNumber));
+            results.add(new ExecutionResult(statement, execute(statement)));
+            LOGGER.debug("statementType={}", statement.getClass().getSimpleName());
         }
             return List.copyOf(results);
         } finally {

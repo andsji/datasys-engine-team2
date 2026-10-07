@@ -4,31 +4,26 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public final class Engine {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Engine.class);
-
     public static void main(String[] args) {
-        LOGGER.debug("engine started");
-
         if (args.length == 0) {
             System.out.println(teamName());
-            System.out.println("Usage: \"SQL statement\" | -f <script.sql>");
+            System.out.println("Usage: -c \"SQL statement\" | -f <script.sql>");
             return;
         }
 
         try {
             String sql;
-            if (args.length == 1) {
+            if (args.length == 2 && args[0].equals("-c")) {
+                sql = args[1];
+            } else if (args.length == 1) {
                 sql = args[0];
             } else if (args.length == 2 && args[0].equals("-f")) {
                 sql = Files.readString(Path.of(args[1]), StandardCharsets.UTF_8);
             } else {
                 throw new IllegalArgumentException(
-                        "Expected one SQL statement or -f followed by a SQL script path");
+                        "Expected -c followed by one SQL statement or -f followed by a SQL script path");
             }
 
             StatementExecutor executor = new StatementExecutor(new StorageEngine(Path.of("data")));
@@ -43,8 +38,6 @@ public final class Engine {
             String message = exception.getMessage();
             System.err.println("Error: " + (message == null ? exception.getClass().getSimpleName() : message));
             System.exit(1);
-        } finally{
-            LOGGER.debug("engine stopped");
         }
     }
 

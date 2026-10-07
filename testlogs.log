@@ -1,0 +1,32 @@
+2026-10-07 15:12:27.497,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,0,3,DEBUG,SqlParser,statements=7 durationMs=59
+2026-10-07 15:12:27.509,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,1,3,DEBUG,Planner,table=trips column=city comparison=EQUALS const=Odense partition=0 min=Aalborg max=Roskilde decision=READ
+2026-10-07 15:12:27.511,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,1,3,DEBUG,ScanOperator,table=trips partitions=1 rowsOut=8
+2026-10-07 15:12:27.511,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,1,3,DEBUG,FilterOperator,predicateColumn=city comparison=EQUALS constant=Odense rowsIn=8 rowsOut=1
+2026-10-07 15:12:27.512,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,1,3,DEBUG,Executor,statementType=SelectStatement
+2026-10-07 15:12:27.512,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,2,3,DEBUG,Planner,table=trips column=distance comparison=GREATER_THAN const=200 partition=0 min=12 max=299 decision=READ
+2026-10-07 15:12:27.513,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,2,3,DEBUG,ScanOperator,table=trips partitions=1 rowsOut=8
+2026-10-07 15:12:27.514,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,2,3,DEBUG,FilterOperator,predicateColumn=distance comparison=GREATER_THAN constant=200 rowsIn=8 rowsOut=2
+2026-10-07 15:12:27.514,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,2,3,DEBUG,Executor,statementType=SelectStatement
+2026-10-07 15:12:27.515,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,3,3,DEBUG,Planner,table=trips column=city comparison=EQUALS const=Aarhus partition=0 min=Aalborg max=Roskilde decision=READ
+2026-10-07 15:12:27.515,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,3,3,DEBUG,ScanOperator,table=trips partitions=1 rowsOut=8
+2026-10-07 15:12:27.516,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,3,3,DEBUG,FilterOperator,predicateColumn=city comparison=EQUALS constant=Aarhus rowsIn=8 rowsOut=1
+2026-10-07 15:12:27.520,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,3,3,DEBUG,Executor,statementType=SelectStatement
+2026-10-07 15:12:27.521,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,4,3,DEBUG,Planner,table=trips column=distance comparison=LESS_THAN const=50 partition=0 min=12 max=299 decision=READ
+2026-10-07 15:12:27.522,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,4,3,DEBUG,ScanOperator,table=trips partitions=1 rowsOut=8
+2026-10-07 15:12:27.522,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,4,3,DEBUG,FilterOperator,predicateColumn=distance comparison=LESS_THAN constant=50 rowsIn=8 rowsOut=2
+2026-10-07 15:12:27.523,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,4,3,DEBUG,Executor,statementType=SelectStatement
+2026-10-07 15:12:27.523,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,5,3,DEBUG,Planner,table=trips column=city comparison=EQUALS const=Copenhagen partition=0 min=Aalborg max=Roskilde decision=READ
+2026-10-07 15:12:27.524,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,5,3,DEBUG,ScanOperator,table=trips partitions=1 rowsOut=8
+2026-10-07 15:12:27.525,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,5,3,DEBUG,FilterOperator,predicateColumn=city comparison=EQUALS constant=Copenhagen rowsIn=8 rowsOut=3
+2026-10-07 15:12:27.525,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,5,3,DEBUG,Executor,statementType=SelectStatement
+2026-10-07 15:12:27.526,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,6,3,DEBUG,Planner,table=trips column=distance comparison=EQUALS const=95 partition=0 min=12 max=299 decision=READ
+2026-10-07 15:12:27.527,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,6,3,DEBUG,ScanOperator,table=trips partitions=1 rowsOut=8
+2026-10-07 15:12:27.528,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,6,3,DEBUG,FilterOperator,predicateColumn=distance comparison=EQUALS constant=95 rowsIn=8 rowsOut=1
+2026-10-07 15:12:27.529,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,6,3,DEBUG,Executor,statementType=SelectStatement
+2026-10-07 15:12:27.529,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,7,3,DEBUG,Planner,table=trips column=city comparison=EQUALS const=Odense partition=0 min=Aalborg max=Roskilde decision=READ
+2026-10-07 15:12:27.530,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,7,3,DEBUG,ScanOperator,table=trips partitions=1 rowsOut=8
+2026-10-07 15:12:27.531,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,7,3,DEBUG,FilterOperator,predicateColumn=city comparison=EQUALS constant=Odense rowsIn=8 rowsOut=1
+2026-10-07 15:12:27.532,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,7,3,DEBUG,Executor,statementType=SelectStatement
+2026-10-07 15:12:27.533,2aa495e1-1ce8-4d81-8044-3afe60c50ac6,0,3,DEBUG,Executor,engine stopped
+2026-10-07 15:12:44.636,cd236a28-b5e1-488d-828a-c9e727d309fa,0,3,ERROR,SqlParser,failed line=1 col=7 durationMs=58
+2026-10-07 15:12:44.641,cd236a28-b5e1-488d-828a-c9e727d309fa,0,3,DEBUG,Executor,engine stopped
