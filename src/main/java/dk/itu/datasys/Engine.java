@@ -16,7 +16,7 @@ public final class Engine {
 
         if (args.length == 0) {
             System.out.println(teamName());
-            System.out.println("Usage: engine \"SQL statement\" | engine -f <script.sql>");
+            System.out.println("Usage: \"SQL statement\" | -f <script.sql>");
             return;
         }
 
