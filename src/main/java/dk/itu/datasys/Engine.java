@@ -20,7 +20,10 @@ public final class Engine {
 
         try {
             String sql;
-            if (args.length == 2 && args[0].equals("-c")) {
+            if (args.length == 0) {
+                System.out.println(teamName());
+                return;
+            } else if (args.length == 2 && args[0].equals("-c")) {
                 sql = args[1];
             } else if (args.length == 1) {
                 sql = args[0];
