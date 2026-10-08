@@ -17,8 +17,10 @@ class LoggingIntegrationTests {
     void failingStatementWritesErrorLineToEngineLog(@TempDir Path tmp)
             throws IOException, InterruptedException {
         String javaExecutable = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        String productionLogConfig = Engine.class.getResource("/log4j2.xml").toExternalForm();
         Process process = new ProcessBuilder(
                 javaExecutable,
+            "-Dlog4j.configurationFile=" + productionLogConfig,
                 "-cp", System.getProperty("java.class.path"),
                 "dk.itu.datasys.Engine",
                 "SELECT FROM;")
@@ -37,6 +39,8 @@ class LoggingIntegrationTests {
         assertTrue(logLines.stream().anyMatch(line -> {
             String[] fields = line.split(",", 7);
             return fields.length == 7
+                    && !fields[1].isBlank()
+                    && fields[2].matches("\\d+")
                     && fields[4].equals("ERROR")
                     && fields[5].equals("SqlParser")
                     && fields[6].startsWith("failed line=");
