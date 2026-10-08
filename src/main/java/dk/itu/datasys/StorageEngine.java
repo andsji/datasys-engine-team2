@@ -173,6 +173,7 @@ public class StorageEngine {
     }
     
     public void copyFile(String tableName, String csvFilePath) { 
+        long startNanos = System.nanoTime();
         TableDefinition table = catalogFile.tables.get(tableName);
         if (table == null) {
             throw new IllegalArgumentException("Unknown table: " + tableName);
@@ -220,8 +221,9 @@ public class StorageEngine {
             table.dataFile = dataDirectory.relativize(dataFile).toString();
             table.partitions = partitions;
             persistCatalog();
-            LOGGER.debug("table={} file={} rows={} partitions={} durationMs=0",
-                    tableName, csvFilePath, rowCount, partitions.size());
+                long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
+                LOGGER.debug("table={} file={} rows={} partitions={} durationMs={}",
+                    tableName, csvFilePath, rowCount, partitions.size(), durationMs);
         } catch (IllegalArgumentException exception) {
             deleteIfExists(temporaryFile);
             throw exception;
