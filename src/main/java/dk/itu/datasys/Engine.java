@@ -3,19 +3,27 @@ package dk.itu.datasys;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 public final class Engine {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(Engine.class);
+
     public static void main(String[] args) {
-        if (args.length == 0) {
-            System.out.println(teamName());
-            System.out.println("Usage: -c \"SQL statement\" | -f <script.sql>");
-            return;
-        }
+
+        MDC.put("sessionId", UUID.randomUUID().toString());
+        MDC.put("statementNumber", "0");
 
         try {
             String sql;
-            if (args.length == 2 && args[0].equals("-c")) {
+            if (args.length == 0) {
+                System.out.println(teamName());
+                return;
+            } else if (args.length == 2 && args[0].equals("-c")) {
                 sql = args[1];
             } else if (args.length == 1) {
                 sql = args[0];
@@ -38,6 +46,11 @@ public final class Engine {
             String message = exception.getMessage();
             System.err.println("Error: " + (message == null ? exception.getClass().getSimpleName() : message));
             System.exit(1);
+        } finally {
+            MDC.put("statementNumber", "0");
+            LOGGER.debug("engine stopped");
+            MDC.remove("statementNumber");
+            MDC.remove("sessionId");
         }
     }
 

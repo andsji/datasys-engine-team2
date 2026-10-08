@@ -20,6 +20,7 @@ public final class StatementExecutor {
     private final Binder binder;
     private final Planner planner;
     private final SqlParser parser;
+    private int statementNumber;
     private static final Logger LOGGER = LoggerFactory.getLogger(Executor.class);
 
     public StatementExecutor(StorageEngine storageEngine) {
@@ -30,23 +31,18 @@ public final class StatementExecutor {
     }
 
     public List<ExecutionResult> execute(String sqlText) {
-        MDC.put("sessionId", UUID.randomUUID().toString());
-        MDC.put("statementNumber", "0");
         
         try{
-        int statementNumber = 0;
-        List<ExecutionResult> results = new ArrayList<>();
-        for (Statement statement : parser.parse(sqlText)) {
-            statementNumber++;
-            MDC.put("statementNumber", String.valueOf(statementNumber));
-            results.add(new ExecutionResult(statement, execute(statement)));
-            LOGGER.debug("statementType={}", statement.getClass().getSimpleName());
+            List<ExecutionResult> results = new ArrayList<>();
+            for (Statement statement : parser.parse(sqlText)) {
+                statementNumber++;
+                MDC.put("statementNumber", String.valueOf(statementNumber));
+                results.add(new ExecutionResult(statement, execute(statement)));
+                LOGGER.debug("statementType={}", statement.getClass().getSimpleName());
         }
             return List.copyOf(results);
         } finally {
-            MDC.put("statementNumber", "0");
-            LOGGER.debug("engine stopped");
-            MDC.clear();
+            
         }
         
     }
