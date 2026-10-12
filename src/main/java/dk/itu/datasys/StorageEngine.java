@@ -59,27 +59,37 @@ public class StorageEngine {
         }
     }
 
-    public void createTable(String tableName, List<ColumnSpec> columns) throws IllegalArgumentException{ 
-        if (tableName == null || tableName.isBlank()) {
-            throw new IllegalArgumentException("Table name must not be blank");
-        }
-        if (catalogFile.tables.containsKey(tableName)) {
-            throw new IllegalArgumentException("Table already exists: " + tableName);
-        }
-        if (columns == null || columns.isEmpty()) {
-            throw new IllegalArgumentException("A table must have at least one column");
-        }
-
-        Set<String> columnNames = new HashSet<>();
-        for (ColumnSpec column : columns) {
-            if (column == null || column.name() == null || column.type() == null
-                    || !columnNames.add(column.name())) {
-                throw new IllegalArgumentException("Column names must be non-null and unique");
+    public void createTable(String tableName, List<ColumnSpec> columns) throws IllegalArgumentException {
+        long startNanos = System.nanoTime();
+        try {
+            if (tableName == null || tableName.isBlank()) {
+                throw new IllegalArgumentException("Table name must not be blank");
             }
-        }
+            if (catalogFile.tables.containsKey(tableName)) {
+                throw new IllegalArgumentException("Table already exists: " + tableName);
+            }
+            if (columns == null || columns.isEmpty()) {
+                throw new IllegalArgumentException("A table must have at least one column");
+            }
 
-        catalogFile.tables.put(tableName, new TableDefinition(columns));
-        persistCatalog();
+            Set<String> columnNames = new HashSet<>();
+            for (ColumnSpec column : columns) {
+                if (column == null || column.name() == null || column.type() == null
+                        || !columnNames.add(column.name())) {
+                    throw new IllegalArgumentException("Column names must be non-null and unique");
+                }
+            }
+
+            catalogFile.tables.put(tableName, new TableDefinition(columns));
+            persistCatalog();
+            long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
+            LOGGER.debug("table={} columns={} durationMs={}", tableName, columns.size(), durationMs);
+        } catch (RuntimeException exception) {
+            long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
+            LOGGER.error("createTable failed table={} failureType={} durationMs={}",
+                    tableName, exception.getClass().getSimpleName(), durationMs);
+            throw exception;
+        }
     }
 
     /** The table's schema, in column order. */
@@ -173,6 +183,7 @@ public class StorageEngine {
     }
     
     public void copyFile(String tableName, String csvFilePath) { 
+        long startNanos = System.nanoTime();
         TableDefinition table = catalogFile.tables.get(tableName);
         if (table == null) {
             throw new IllegalArgumentException("Unknown table: " + tableName);
@@ -220,8 +231,9 @@ public class StorageEngine {
             table.dataFile = dataDirectory.relativize(dataFile).toString();
             table.partitions = partitions;
             persistCatalog();
-            LOGGER.debug("table={} file={} rows={} partitions={} durationMs=0",
-                    tableName, csvFilePath, rowCount, partitions.size());
+                long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
+                LOGGER.debug("table={} file={} rows={} partitions={} durationMs={}",
+                    tableName, csvFilePath, rowCount, partitions.size(), durationMs);
         } catch (IllegalArgumentException exception) {
             deleteIfExists(temporaryFile);
             throw exception;

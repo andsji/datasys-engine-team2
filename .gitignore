@@ -2,3 +2,4 @@ target/
 logs/
 .vscode/
 data/
+dependency-reduced-pom.xml

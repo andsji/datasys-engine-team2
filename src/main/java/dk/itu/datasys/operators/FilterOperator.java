@@ -60,7 +60,8 @@ public final class FilterOperator implements Operator {
 	@Override
 	public void close() {
 		child.close();
-		LOGGER.debug("predicate={} rowsIn={} rowsOut={}", predicate, rowsIn, rowsOut);
+		LOGGER.debug("predicateColumn={} comparison={} constant={} rowsIn={} rowsOut={}",
+				predicate.columnName(), predicate.comparison(), predicate.constant(), rowsIn, rowsOut);
 	}
 
 	private boolean matches(Object value) {
