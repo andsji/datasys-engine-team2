@@ -31,20 +31,20 @@ public final class StatementExecutor {
     }
 
     public List<ExecutionResult> execute(String sqlText) {
-        
-        try{
+
+        try {
             List<ExecutionResult> results = new ArrayList<>();
             for (Statement statement : parser.parse(sqlText)) {
                 statementNumber++;
                 MDC.put("statementNumber", String.valueOf(statementNumber));
                 results.add(new ExecutionResult(statement, execute(statement)));
-                LOGGER.debug("statementType={}", statement.getClass().getSimpleName());
-        }
+                //LOGGER.debug("statementType={}", statement.getClass().getSimpleName());
+            }
             return List.copyOf(results);
         } finally {
-            
+
         }
-        
+
     }
 
     public List<Object[]> execute(Statement statement) {
@@ -55,7 +55,15 @@ public final class StatementExecutor {
             case CopyStatement copy ->
                     storageEngine.copyFile(copy.tableName(), copy.csvFilePath());
             case SelectStatement select -> {
-                return executePlan(planner.plan(select));
+                long startNanos = System.nanoTime();
+                List<Object[]> rows = executePlan(planner.plan(select));
+                String durationMs = LogDuration.formatMillisSince(startNanos);
+                LOGGER.debug("statementType={} table={} rows={} durationMs={}",
+                        select.getClass().getSimpleName(),
+                        select.tableName(),
+                        rows.size(),
+                        durationMs);
+                return rows;
             }
         }
         return List.of();
@@ -76,8 +84,6 @@ public final class StatementExecutor {
     }
 
     public record ExecutionResult(Statement statement, List<Object[]> rows) {
-        public ExecutionResult {
-            rows = List.copyOf(rows);
-        }
+        public ExecutionResult{rows=List.copyOf(rows);}
     }
 }
