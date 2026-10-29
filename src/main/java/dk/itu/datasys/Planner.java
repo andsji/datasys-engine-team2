@@ -46,6 +46,7 @@ public final class Planner {
             ColumnType columnType = table.columns.get(columnIndex).type();
             storageEngine.validateConstant(columnType, predicate.constant());
             for (int partitionIndex = 0; partitionIndex < table.partitions.size(); partitionIndex++) {
+                long pruningStartNanos = System.nanoTime();
                 PartitionDefinition partition = table.partitions.get(partitionIndex);
                 ColumnStats stats = partition.columns.get(predicate.columnName());
                 if (stats == null) {
@@ -56,12 +57,14 @@ public final class Planner {
                 Object max = storageEngine.jsonValue(stats.max, columnType);
                 boolean pruned = storageEngine.cannotMatch(columnType, predicate.comparison(),
                         predicate.constant(), min, max);
-                LOGGER.debug("table={} column={} comparison={} const={} partition={} min={} max={} decision={}",
+                String durationMs = LogDuration.formatMillisSince(pruningStartNanos);
+                LOGGER.debug("table={} column={} comparison={} const={} partition={} min={} max={} decision={} durationMs={}",
                         storageEngine.logValue(statement.tableName()),
                         storageEngine.logValue(predicate.columnName()), predicate.comparison(),
                         storageEngine.logValue(predicate.constant()), partitionIndex,
                         storageEngine.logValue(min), storageEngine.logValue(max),
-                        pruned ? "PRUNED" : "READ");
+                        pruned ? "PRUNED" : "READ",
+                        durationMs);
                 if (!pruned) {
                     survivingPartitions.add(partition);
                 }

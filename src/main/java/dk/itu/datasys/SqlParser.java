@@ -15,7 +15,7 @@ public final class SqlParser {
             LoggerFactory.getLogger(SqlParser.class);
 
     public List<Statement> parse(String sqlText) {
-        long start = System.nanoTime(); //Timer for logging
+        long startNanos = System.nanoTime();
 
         try {
             SqlLexer lexer = new SqlLexer(CharStreams.fromString(sqlText));
@@ -34,19 +34,17 @@ public final class SqlParser {
             List<Statement> statements =
                     new SqlAstBuilder().visitScript(generatedParser.script());
 
+            String durationMs = LogDuration.formatMillisSince(startNanos);
             LOGGER.debug("statements={} durationMs={}",
-                    statements.size(), durationMs(start));
+                    statements.size(), durationMs);
 
             return statements;
         } catch (SqlParseException exception) {
+            String durationMs = LogDuration.formatMillisSince(startNanos);
             LOGGER.error("failed line={} col={} durationMs={}",
-                    exception.line(), exception.column(), durationMs(start));
+                    exception.line(), exception.column(), durationMs);
             throw exception;
         }
-    }
-
-    private static long durationMs(long start) {
-        return (System.nanoTime() - start) / 1_000_000;
     }
 
     private static final class ThrowingErrorListener extends BaseErrorListener {
