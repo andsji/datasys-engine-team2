@@ -2,6 +2,7 @@ package dk.itu.datasys;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -21,7 +22,7 @@ public final class StatementExecutor {
     private final Planner planner;
     private final SqlParser parser;
     private int statementNumber;
-    private static final Logger LOGGER = LoggerFactory.getLogger(Executor.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(StatementExecutor.class);
 
     public StatementExecutor(StorageEngine storageEngine) {
         this.storageEngine = Objects.requireNonNull(storageEngine, "storageEngine");
@@ -55,7 +56,13 @@ public final class StatementExecutor {
             case CopyStatement copy ->
                     storageEngine.copyFile(copy.tableName(), copy.csvFilePath());
             case SelectStatement select -> {
-                return executePlan(planner.plan(select));
+                long startNanos = System.nanoTime();
+                List<Object[]> rows = executePlan(planner.plan(select));
+                double durationMs = (System.nanoTime() - startNanos) / 1_000_000.0;
+                LOGGER.debug("statementType={} table={} rows={} durationMs={}",
+                        select.getClass().getSimpleName(), select.tableName(), rows.size(),
+                        String.format(Locale.ROOT, "%.3f", durationMs));
+                return rows;
             }
         }
         return List.of();

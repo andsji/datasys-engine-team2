@@ -3,3 +3,5 @@ logs/
 .vscode/
 data/
 dependency-reduced-pom.xml
+/experiment/results/
+/experiment/script/aqi-data.*

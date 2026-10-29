@@ -34,7 +34,11 @@ public final class Engine {
                         "Expected -c followed by one SQL statement or -f followed by a SQL script path");
             }
 
-            StatementExecutor executor = new StatementExecutor(new StorageEngine(Path.of("data")));
+            Path dataDirectory = Path.of(System.getProperty("datasys.dataDirectory", "data"));
+            int maxRowsPerPartition = Integer.parseInt(
+                    System.getProperty("datasys.maxRowsPerPartition", "1000"));
+            StatementExecutor executor = new StatementExecutor(
+                    new StorageEngine(dataDirectory, maxRowsPerPartition));
             for (StatementExecutor.ExecutionResult result : executor.execute(sql)) {
                 if (result.statement() instanceof Statement.SelectStatement) {
                     for (Object[] row : result.rows()) {

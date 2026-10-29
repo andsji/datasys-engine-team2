@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="warn">
+  <Appenders>
+    <File name="ExperimentLog" fileName="${sys:experiment.logFile}" append="true">
+      <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS},%X{sessionId},%X{statementNumber},%tid,%level,%logger{1},partitionSize=${sys:datasys.maxRowsPerPartition},%m%n"/>
+    </File>
+  </Appenders>
+  <Loggers>
+    <Logger name="dk.itu.datasys.StatementExecutor" level="debug" additivity="false">
+      <AppenderRef ref="ExperimentLog"/>
+    </Logger>
+    <Root level="info">
+      <AppenderRef ref="ExperimentLog"/>
+    </Root>
+  </Loggers>
+</Configuration>
