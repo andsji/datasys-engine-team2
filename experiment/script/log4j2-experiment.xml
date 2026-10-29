@@ -9,6 +9,9 @@
     <Logger name="dk.itu.datasys.StatementExecutor" level="debug" additivity="false">
       <AppenderRef ref="ExperimentLog"/>
     </Logger>
+    <Logger name="dk.itu.datasys.Planner" level="debug" additivity="false">
+      <AppenderRef ref="ExperimentLog"/>
+    </Logger>
     <Root level="info">
       <AppenderRef ref="ExperimentLog"/>
     </Root>
