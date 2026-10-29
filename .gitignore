@@ -5,3 +5,4 @@ data/
 dependency-reduced-pom.xml
 /experiment/results/
 /experiment/script/aqi-data.*
+experiment/.DS_Store
