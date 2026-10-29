@@ -82,12 +82,14 @@ public class StorageEngine {
 
             catalogFile.tables.put(tableName, new TableDefinition(columns));
             persistCatalog();
-            long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
-            LOGGER.debug("table={} columns={} durationMs={}", tableName, columns.size(), durationMs);
+            String durationMs = LogDuration.formatMillisSince(startNanos);
+            LOGGER.debug("table={} columns={} durationMs={}", tableName, columns.size(),
+                    durationMs);
         } catch (RuntimeException exception) {
-            long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
+            String durationMs = LogDuration.formatMillisSince(startNanos);
             LOGGER.error("createTable failed table={} failureType={} durationMs={}",
-                    tableName, exception.getClass().getSimpleName(), durationMs);
+                    tableName, exception.getClass().getSimpleName(),
+                    durationMs);
             throw exception;
         }
     }
@@ -231,9 +233,10 @@ public class StorageEngine {
             table.dataFile = dataDirectory.relativize(dataFile).toString();
             table.partitions = partitions;
             persistCatalog();
-                long durationMs = (System.nanoTime() - startNanos) / 1_000_000;
-                LOGGER.debug("table={} file={} rows={} partitions={} durationMs={}",
-                    tableName, csvFilePath, rowCount, partitions.size(), durationMs);
+            String durationMs = LogDuration.formatMillisSince(startNanos);
+            LOGGER.debug("table={} file={} rows={} partitions={} durationMs={}",
+                    tableName, csvFilePath, rowCount, partitions.size(),
+                    durationMs);
         } catch (IllegalArgumentException exception) {
             deleteIfExists(temporaryFile);
             throw exception;
