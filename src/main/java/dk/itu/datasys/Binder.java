@@ -6,6 +6,7 @@ import dk.itu.datasys.Specifications.ColumnSpec;
 import dk.itu.datasys.Specifications.ColumnType;
 import dk.itu.datasys.Statement.CopyStatement;
 import dk.itu.datasys.Statement.CreateTableStatement;
+import dk.itu.datasys.Statement.DeleteStatement;
 import dk.itu.datasys.Statement.Predicate;
 import dk.itu.datasys.Statement.SelectStatement;
 
@@ -23,6 +24,7 @@ public final class Binder {
             case CreateTableStatement createTable -> bindCreateTable(createTable);
             case CopyStatement copy -> requireTable(copy.tableName());
             case SelectStatement select -> bindSelect(select);
+            case DeleteStatement delete -> bindDelete(delete);
         }
     }
 
@@ -41,6 +43,22 @@ public final class Binder {
     }
 
     private void bindSelect(SelectStatement statement) {
+        for (ColumnSpec column : engine.schema(statement.tableName())) {
+            if (statement.where().isPresent()) {
+                Predicate predicate = statement.where().get();
+                if (column.name().equals(predicate.columnName())) {
+                    validateConstant(predicate, column.type());
+                    return;
+                }
+            }
+        }
+        if (statement.where().isPresent()) {
+            throw new IllegalArgumentException("Unknown column: "
+                    + statement.where().get().columnName());
+        }
+    }
+
+    private void bindDelete(DeleteStatement statement) {
         for (ColumnSpec column : engine.schema(statement.tableName())) {
             if (statement.where().isPresent()) {
                 Predicate predicate = statement.where().get();

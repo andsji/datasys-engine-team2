@@ -5,6 +5,7 @@ import dk.itu.datasys.Specifications.ColumnType;
 import dk.itu.datasys.Specifications.Comparison;
 import dk.itu.datasys.Statement.CopyStatement;
 import dk.itu.datasys.Statement.CreateTableStatement;
+import dk.itu.datasys.Statement.DeleteStatement;
 import dk.itu.datasys.Statement.SelectStatement;
 
 public class SqlPrinter {
@@ -14,6 +15,7 @@ public class SqlPrinter {
             case CreateTableStatement create -> printCreateTable(create);
             case CopyStatement copy -> printCopy(copy);
             case SelectStatement select -> printSelect(select);
+            case DeleteStatement delete -> printDelete(delete);
         };
     }
 
@@ -50,6 +52,20 @@ public class SqlPrinter {
             .append(literalSql(predicate.constant()));
         }
 
+        sb.append(";");
+        return sb.toString();
+    }
+
+    private static String printDelete(Statement.DeleteStatement deleteStatement) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("DELETE FROM ").append(deleteStatement.tableName());
+        if (deleteStatement.where().isPresent()) {
+            Statement.Predicate predicate = deleteStatement.where().get();
+            sb.append(" WHERE ")
+                    .append(predicate.columnName()).append(" ")
+                    .append(comparisonString(predicate.comparison())).append(" ")
+                    .append(literalSql(predicate.constant()));
+        }
         sb.append(";");
         return sb.toString();
     }

@@ -13,8 +13,11 @@ import org.slf4j.MDC;
 
 import dk.itu.datasys.Statement.CopyStatement;
 import dk.itu.datasys.Statement.CreateTableStatement;
+import dk.itu.datasys.Statement.DeleteStatement;
 import dk.itu.datasys.Statement.SelectStatement;
 import dk.itu.datasys.operators.Operator;
+import dk.itu.datasys.StorageEngine.ScanStats;
+import dk.itu.datasys.StorageEngine.TableDefinition;
 
 public final class StatementExecutor {
     private final StorageEngine storageEngine;
@@ -55,15 +58,17 @@ public final class StatementExecutor {
                     storageEngine.createTable(createTable.tableName(), createTable.columns());
             case CopyStatement copy ->
                     storageEngine.copyFile(copy.tableName(), copy.csvFilePath());
+            case DeleteStatement delete ->
+                    storageEngine.deleteRows(delete.tableName(), delete.where().orElse(null));
             case SelectStatement select -> {
                 long startNanos = System.nanoTime();
+                TableDefinition snapshot = storageEngine.tableDefinition(select.tableName());
                 List<Object[]> rows = executePlan(planner.plan(select));
                 String durationMs = LogDuration.formatMillisSince(startNanos);
-                LOGGER.debug("statementType={} table={} rows={} durationMs={}",
-                        select.getClass().getSimpleName(),
-                        select.tableName(),
-                        rows.size(),
-                        durationMs);
+                ScanStats scanStats = storageEngine.getLastScanStats();
+                LOGGER.debug("statement=SELECT table={} rowsOut={} partitionsRead={} partitionsPruned={} version={} durationMs={}",
+                        select.tableName(), rows.size(), scanStats.partitionsRead(),
+                        scanStats.partitionsPruned(), snapshot.version, durationMs);
                 return rows;
             }
         }

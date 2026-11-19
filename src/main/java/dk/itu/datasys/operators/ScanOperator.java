@@ -8,27 +8,34 @@ import org.slf4j.LoggerFactory;
 
 import dk.itu.datasys.StorageEngine;
 import dk.itu.datasys.StorageEngine.PartitionDefinition;
+import dk.itu.datasys.StorageEngine.TableDefinition;
 import dk.itu.datasys.Specifications.ColumnSpec;
 
 public final class ScanOperator implements Operator{
     
     private final StorageEngine storageEngine;
     private final String tableName;
+    private final TableDefinition table;
     private final List<PartitionDefinition> partitions;
     private int rowsOut;
     private int index;
     private Iterator<Object[]> rows;
     private static final Logger LOGGER = LoggerFactory.getLogger(ScanOperator.class);
 
-    public ScanOperator(StorageEngine storageEngine, String tableName, List<PartitionDefinition> partitions){
+    public ScanOperator(StorageEngine storageEngine, String tableName, TableDefinition table, List<PartitionDefinition> partitions){
         this.storageEngine = storageEngine;
         this.tableName = tableName;
+        this.table = table;
         this.partitions = partitions;
+    }
+    
+    public ScanOperator(StorageEngine storageEngine, String tableName, List<PartitionDefinition> partitions) {
+        this(storageEngine, tableName, storageEngine.tableDefinition(tableName), partitions);
     }
 
     @Override
     public List<ColumnSpec> schema() {
-        return storageEngine.schema(tableName);
+        return List.copyOf(table.columns);
     }
 
     @Override 
@@ -43,7 +50,7 @@ public final class ScanOperator implements Operator{
         while(!rows.hasNext() && index < partitions.size()){
             PartitionDefinition partition = partitions.get(index);
             index++;
-            List<Object[]> partitionRows = storageEngine.readPartitionRows(tableName, partition);
+            List<Object[]> partitionRows = storageEngine.readPartitionRows(table, partition);
             rows = partitionRows.iterator();
         }
 

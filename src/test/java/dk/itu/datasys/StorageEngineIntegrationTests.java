@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import dk.itu.datasys.Specifications.ColumnSpec;
+import dk.itu.datasys.Statement.Predicate;
+import dk.itu.datasys.StorageEngine.PartitionDefinition;
+import dk.itu.datasys.StorageEngine.TableDefinition;
 
 class StorageEngineIntegrationTests {
     private static final List<ColumnSpec> TRIP_SCHEMA = List.of(
@@ -94,6 +97,86 @@ class StorageEngineIntegrationTests {
         loadGoldenFile(2);
         StorageEngine restarted = new StorageEngine(dataDirectory);
         assertEquals(8, restarted.select("trips", "distance", GREATER_THAN, -1L).size());
+    }
+
+    @Test
+    void repeatedCopyAppendsAndVersionsCatalog() throws Exception {
+        StorageEngine engine = new StorageEngine(dataDirectory, 2);
+        engine.createTable("trips", TRIP_SCHEMA);
+        assertEquals(0L, engine.tableVersion("trips"));
+
+        Path first = dataDirectory.resolve("first.csv");
+        Files.writeString(first, "Aalborg,12,23.5\nOdense,95,120.75\n");
+        engine.copyFile("trips", first.toString());
+        assertEquals(1L, engine.tableVersion("trips"));
+
+        Path second = dataDirectory.resolve("second.csv");
+        Files.writeString(second, "Roskilde,187,450.25\nCopenhagen,299,300.0\n");
+        engine.copyFile("trips", second.toString());
+        assertEquals(2L, engine.tableVersion("trips"));
+
+        StorageEngine restarted = new StorageEngine(dataDirectory, 2);
+        assertEquals(2L, restarted.tableVersion("trips"));
+        assertEquals(4, restarted.select("trips", "distance", GREATER_THAN, -1L).size());
+        assertEquals(2, restarted.testCatalog().tables.get("trips").partitions.size());
+    }
+
+    @Test
+    void emptyCopyIsANoop() throws Exception {
+        StorageEngine engine = new StorageEngine(dataDirectory);
+        engine.createTable("trips", TRIP_SCHEMA);
+        Path empty = dataDirectory.resolve("empty.csv");
+        Files.writeString(empty, "");
+        engine.copyFile("trips", empty.toString());
+        assertEquals(0L, engine.tableVersion("trips"));
+        assertTrue(engine.testCatalog().tables.get("trips").partitions.isEmpty());
+    }
+
+    @Test
+    void selectiveDeleteRewritesOnlyCandidatePartitionsAndCarriesOffsets() throws Exception {
+        StorageEngine engine = loadGoldenFile(2);
+        TableDefinition before = engine.snapshotTable("trips");
+        long originalVersion = before.version;
+        long[] carriedOffsets = new long[] { before.partitions.get(0).offset,
+                before.partitions.get(1).offset, before.partitions.get(2).offset,
+                before.partitions.get(3).offset };
+
+        engine.deleteRows("trips", new Predicate("distance", EQUALS, 95L));
+
+        TableDefinition after = engine.snapshotTable("trips");
+        assertEquals(originalVersion + 1, after.version);
+        assertEquals(4, after.partitions.size());
+
+        assertEquals(carriedOffsets[0], after.partitions.get(0).offset);
+        assertEquals(carriedOffsets[2], after.partitions.get(2).offset);
+        assertEquals(carriedOffsets[3], after.partitions.get(3).offset);
+
+        boolean foundReplacementWithRows = false;
+        for (PartitionDefinition partition : after.partitions) {
+            if (partition.offset != carriedOffsets[0]
+                    && partition.offset != carriedOffsets[1]
+                    && partition.offset != carriedOffsets[2]
+                    && partition.offset != carriedOffsets[3]) {
+                foundReplacementWithRows = true;
+            }
+        }
+        assertTrue(foundReplacementWithRows);
+
+        StorageEngine restarted = new StorageEngine(dataDirectory, 2);
+        assertEquals(after.version, restarted.tableVersion("trips"));
+        assertEquals(7, restarted.select("trips", "distance", GREATER_THAN, -1L).size());
+    }
+
+    @Test
+    void deleteWithNoMatchIsANoop() throws Exception {
+        StorageEngine engine = loadGoldenFile(2);
+        long beforeVersion = engine.tableVersion("trips");
+        int beforePartitions = engine.snapshotTable("trips").partitions.size();
+
+        engine.deleteRows("trips", new Predicate("distance", EQUALS, 999L));
+
+        assertEquals(beforeVersion, engine.tableVersion("trips"));
+        assertEquals(beforePartitions, engine.snapshotTable("trips").partitions.size());
     }
 
     private StorageEngine loadGoldenFile(int partitionSize) throws Exception {

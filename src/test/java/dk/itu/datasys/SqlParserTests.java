@@ -28,6 +28,13 @@ class SqlParserTests {
         assertEquals(new Statement.SelectStatement("trips", Optional.of(
                 new Statement.Predicate("distance", Comparison.GREATER_THAN, 100L))),
                 parser.parse("SELECT * FROM trips WHERE distance > 100;").get(0));
+
+        assertEquals(new Statement.DeleteStatement("trips", Optional.empty()),
+                parser.parse("DELETE FROM trips;").get(0));
+
+        assertEquals(new Statement.DeleteStatement("trips", Optional.of(
+                new Statement.Predicate("distance", Comparison.LESS_THAN, 100L))),
+                parser.parse("DELETE FROM trips WHERE distance < 100;").get(0));
     }
 
     @Test

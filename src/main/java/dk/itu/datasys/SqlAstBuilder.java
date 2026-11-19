@@ -8,6 +8,7 @@ import dk.itu.datasys.Specifications.ColumnType;
 import dk.itu.datasys.Specifications.Comparison;
 import dk.itu.datasys.Statement.CopyStatement;
 import dk.itu.datasys.Statement.CreateTableStatement;
+import dk.itu.datasys.Statement.DeleteStatement;
 import dk.itu.datasys.Statement.Predicate;
 import dk.itu.datasys.Statement.SelectStatement;
 import dk.itu.datasys.sql.SqlBaseVisitor;
@@ -90,5 +91,13 @@ public final class SqlAstBuilder extends SqlBaseVisitor<Object> {
 
     private static String unquote(String text) {
         return text.substring(1, text.length() - 1);
+    }
+
+    @Override
+    public DeleteStatement visitDelete(dk.itu.datasys.sql.SqlParser.DeleteContext context) {
+        Optional<Predicate> predicate = context.predicate() == null
+                ? Optional.empty()
+                : Optional.of((Predicate) visit(context.predicate()));
+        return new DeleteStatement(context.IDENTIFIER().getText(), predicate);
     }
 }

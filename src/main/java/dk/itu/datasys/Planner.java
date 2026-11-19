@@ -72,7 +72,7 @@ public final class Planner {
         }
 
         storageEngine.recordScanStats(table.partitions.size(), survivingPartitions.size());
-        Operator scan = new ScanOperator(storageEngine, statement.tableName(), survivingPartitions);
+        Operator scan = new ScanOperator(storageEngine, statement.tableName(), table, survivingPartitions);
         return predicate == null ? scan : new FilterOperator(scan, predicate);
     }
 }
