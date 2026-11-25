@@ -9,9 +9,10 @@ import org.slf4j.LoggerFactory;
 
 import dk.itu.datasys.Specifications.ColumnSpec;
 import dk.itu.datasys.Specifications.ColumnType;
-import dk.itu.datasys.StorageEngine.ColumnStats;
-import dk.itu.datasys.StorageEngine.PartitionDefinition;
 import dk.itu.datasys.StorageEngine.TableDefinition;
+import dk.itu.datasys.Catalog.ColumnStats;
+import dk.itu.datasys.Catalog.Partition;
+import dk.itu.datasys.Catalog.Snapshot;
 import dk.itu.datasys.Statement.Predicate;
 import dk.itu.datasys.Statement.SelectStatement;
 import dk.itu.datasys.operators.FilterOperator;
@@ -29,8 +30,14 @@ public final class Planner {
 
     public Operator plan(SelectStatement statement) {
         Objects.requireNonNull(statement, "statement");
-        TableDefinition table = storageEngine.tableDefinition(statement.tableName());
-        List<PartitionDefinition> survivingPartitions = new ArrayList<>();
+        return plan(statement, storageEngine.snapshot(statement.tableName()));
+    }
+
+    public Operator plan(SelectStatement statement, Snapshot snapshot) {
+        Objects.requireNonNull(statement, "statement");
+        Objects.requireNonNull(snapshot, "snapshot");
+        TableDefinition table = storageEngine.tableDefinition(snapshot);
+        List<Partition> survivingPartitions = new ArrayList<>();
         Predicate predicate = statement.where().orElse(null);
 
         if (predicate == null) {
@@ -47,7 +54,7 @@ public final class Planner {
             storageEngine.validateConstant(columnType, predicate.constant());
             for (int partitionIndex = 0; partitionIndex < table.partitions.size(); partitionIndex++) {
                 long pruningStartNanos = System.nanoTime();
-                PartitionDefinition partition = table.partitions.get(partitionIndex);
+                Partition partition = table.partitions.get(partitionIndex);
                 ColumnStats stats = partition.columns.get(predicate.columnName());
                 if (stats == null) {
                     throw new IllegalStateException(

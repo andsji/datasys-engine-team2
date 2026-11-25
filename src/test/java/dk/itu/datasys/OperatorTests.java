@@ -57,7 +57,8 @@ class OperatorTests {
         engine.copyFile("trips", Path.of("src", "test", "resources", "trips.csv").toString());
 
         List<Object[]> expected = loadTripsRows();
-        List<Object[]> actual = drain(new ScanOperator(engine, "trips", engine.testCatalog().tables.get("trips").partitions));
+        List<Object[]> actual = drain(new ScanOperator(engine, "trips",
+            engine.testCatalog().tables.get("trips").snapshot().partitions()));
 
         assertEquals(expected.size(), actual.size());
         assertArrayEquals(expected.get(0), actual.get(0));

@@ -22,8 +22,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import dk.itu.datasys.Specifications.ColumnSpec;
 import dk.itu.datasys.Statement.Predicate;
-import dk.itu.datasys.StorageEngine.PartitionDefinition;
 import dk.itu.datasys.StorageEngine.TableDefinition;
+import dk.itu.datasys.Catalog.Partition;
 
 class StorageEngineIntegrationTests {
     private static final List<ColumnSpec> TRIP_SCHEMA = List.of(
@@ -35,11 +35,43 @@ class StorageEngineIntegrationTests {
 
     @Test
     void schemaPersistsAndDuplicateTableIsRejected() {
-        new StorageEngine(dataDirectory).createTable("trips", TRIP_SCHEMA);
-        assertThrows(IllegalArgumentException.class,
-                () -> new StorageEngine(dataDirectory).createTable("trips", TRIP_SCHEMA));
+        StorageEngine engine = new StorageEngine(dataDirectory);
+        engine.createTable("trips", TRIP_SCHEMA);
+        assertTrue(!Files.exists(dataDirectory.resolve("catalog/catalog.json")));
+        engine.close();
         assertTrue(Files.exists(dataDirectory.resolve("catalog/catalog.json")));
+        StorageEngine restarted = new StorageEngine(dataDirectory);
+        assertThrows(IllegalArgumentException.class,
+            () -> restarted.createTable("trips", TRIP_SCHEMA));
+        restarted.close();
     }
+
+        @Test
+        void legacyCatalogLoadsItsVersionAndIsWrittenInVersionedFormatOnClose() throws Exception {
+                Path catalogDirectory = dataDirectory.resolve("catalog");
+                Files.createDirectories(catalogDirectory);
+                Files.writeString(catalogDirectory.resolve("catalog.json"), """
+                                {
+                                    "tables": {
+                                        "trips": {
+                                            "version": 5,
+                                            "columns": [],
+                                            "dataFile": null,
+                                            "partitions": []
+                                        }
+                                    }
+                                }
+                                """);
+
+                StorageEngine engine = new StorageEngine(dataDirectory);
+                assertEquals(5L, engine.tableVersion("trips"));
+                engine.close();
+
+                JsonNode catalog = new ObjectMapper().readTree(
+                                catalogDirectory.resolve("catalog.json").toFile());
+                assertTrue(catalog.path("tables").path("trips").path("partitionsByVersion")
+                                .has("5"));
+        }
 
     @Test
     void goldenFileRoundTripsAllRowsAndTypes() throws Exception {
@@ -80,23 +112,25 @@ class StorageEngineIntegrationTests {
     @Test
     void partitionMetadataAndPruningArePersisted() throws Exception {
         StorageEngine engine = loadGoldenFile(2);
-        JsonNode catalog = new ObjectMapper().readTree(
-                dataDirectory.resolve("catalog/catalog.json").toFile());
-        JsonNode partitions = catalog.path("tables").path("trips").path("partitions");
-        assertEquals(4, partitions.size());
-        assertEquals(12L, partitions.get(0).path("columns").path("distance").path("min").asLong());
-        assertEquals(187L, partitions.get(0).path("columns").path("distance").path("max").asLong());
-
         List<Object[]> rows = engine.select("trips", "distance", GREATER_THAN, 200L);
         assertEquals(2, rows.size());
         assertTrue(engine.getLastScanStats().partitionsPruned() >= 2);
+        engine.close();
+        JsonNode catalog = new ObjectMapper().readTree(
+                dataDirectory.resolve("catalog/catalog.json").toFile());
+        JsonNode partitions = catalog.path("tables").path("trips")
+            .path("partitionsByVersion").path("1");
+        assertEquals(4, partitions.size());
+        assertEquals(12L, partitions.get(0).path("columns").path("distance").path("min").asLong());
+        assertEquals(187L, partitions.get(0).path("columns").path("distance").path("max").asLong());
     }
 
     @Test
     void copiedDataSurvivesRestart() throws Exception {
-        loadGoldenFile(2);
+        loadGoldenFile(2).close();
         StorageEngine restarted = new StorageEngine(dataDirectory);
         assertEquals(8, restarted.select("trips", "distance", GREATER_THAN, -1L).size());
+        restarted.close();
     }
 
     @Test
@@ -115,10 +149,12 @@ class StorageEngineIntegrationTests {
         engine.copyFile("trips", second.toString());
         assertEquals(2L, engine.tableVersion("trips"));
 
+        engine.close();
         StorageEngine restarted = new StorageEngine(dataDirectory, 2);
         assertEquals(2L, restarted.tableVersion("trips"));
         assertEquals(4, restarted.select("trips", "distance", GREATER_THAN, -1L).size());
-        assertEquals(2, restarted.testCatalog().tables.get("trips").partitions.size());
+        assertEquals(2, restarted.testCatalog().tables.get("trips").snapshot().partitions().size());
+        restarted.close();
     }
 
     @Test
@@ -128,8 +164,9 @@ class StorageEngineIntegrationTests {
         Path empty = dataDirectory.resolve("empty.csv");
         Files.writeString(empty, "");
         engine.copyFile("trips", empty.toString());
-        assertEquals(0L, engine.tableVersion("trips"));
-        assertTrue(engine.testCatalog().tables.get("trips").partitions.isEmpty());
+        assertEquals(1L, engine.tableVersion("trips"));
+        assertTrue(engine.testCatalog().tables.get("trips").snapshot().partitions().isEmpty());
+        engine.close();
     }
 
     @Test
@@ -152,7 +189,7 @@ class StorageEngineIntegrationTests {
         assertEquals(carriedOffsets[3], after.partitions.get(3).offset);
 
         boolean foundReplacementWithRows = false;
-        for (PartitionDefinition partition : after.partitions) {
+        for (Partition partition : after.partitions) {
             if (partition.offset != carriedOffsets[0]
                     && partition.offset != carriedOffsets[1]
                     && partition.offset != carriedOffsets[2]
@@ -162,9 +199,11 @@ class StorageEngineIntegrationTests {
         }
         assertTrue(foundReplacementWithRows);
 
+        engine.close();
         StorageEngine restarted = new StorageEngine(dataDirectory, 2);
         assertEquals(after.version, restarted.tableVersion("trips"));
         assertEquals(7, restarted.select("trips", "distance", GREATER_THAN, -1L).size());
+        restarted.close();
     }
 
     @Test
@@ -175,7 +214,7 @@ class StorageEngineIntegrationTests {
 
         engine.deleteRows("trips", new Predicate("distance", EQUALS, 999L));
 
-        assertEquals(beforeVersion, engine.tableVersion("trips"));
+        assertEquals(beforeVersion + 1, engine.tableVersion("trips"));
         assertEquals(beforePartitions, engine.snapshotTable("trips").partitions.size());
     }
 

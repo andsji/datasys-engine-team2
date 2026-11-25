@@ -58,8 +58,7 @@ class StorageEngineUnitTests {
 
         engine.createTable("trips", columns);
 
-        StorageEngine.TableDefinition table =
-            engine.testCatalog().tables.get("trips");
+        List<Catalog.Partition> partitions = new ArrayList<>();
 
         List<Object[]> singleRow = List.<Object[]>of(
             new Object[] { "Aarhus", 10L });
@@ -74,34 +73,34 @@ class StorageEngineUnitTests {
 
         try (DataOutputStream out = new DataOutputStream(Files.newOutputStream(dataDirectory.resolve("temp.bin")))) {
 
-            long offset = engine.writePartition(out, singleRow, "trips", columns, table.partitions, 0L);
+            long offset = engine.writePartition(out, singleRow, "trips", columns, partitions, 0L);
 
             // Check only 1 partition exists
-            assertEquals(1, table.partitions.size());
+            assertEquals(1, partitions.size());
             
             //Check min/max is the same for single-value cases
             assertEquals("Aarhus",
-                table.partitions.get(0).columns.get("city").min.asText());
+                partitions.get(0).columns.get("city").min.asText());
             assertEquals("Aarhus",
-                table.partitions.get(0).columns.get("city").max.asText());
+                partitions.get(0).columns.get("city").max.asText());
 
-            int multiplePartitionIndex = table.partitions.size();
-            offset = engine.writePartition(out, multipleRows, "trips", columns, table.partitions, offset);
+            int multiplePartitionIndex = partitions.size();
+            offset = engine.writePartition(out, multipleRows, "trips", columns, partitions, offset);
 
             //Check min/max with several values
-            assertEquals(10L, table.partitions.get(multiplePartitionIndex)
+            assertEquals(10L, partitions.get(multiplePartitionIndex)
                 .columns.get("distance").min.asLong());
-            assertEquals(100L, table.partitions.get(multiplePartitionIndex)
+            assertEquals(100L, partitions.get(multiplePartitionIndex)
                 .columns.get("distance").max.asLong());
 
-            int negativePartitionIndex = table.partitions.size();
+            int negativePartitionIndex = partitions.size();
             engine.writePartition(
-                out, negativeRow, "trips", columns, table.partitions, offset);
+                out, negativeRow, "trips", columns, partitions, offset);
 
             //Check for negative long value case
-            assertEquals(-42L, table.partitions.get(negativePartitionIndex)
+            assertEquals(-42L, partitions.get(negativePartitionIndex)
                 .columns.get("distance").min.asLong());
-            assertEquals(-42L, table.partitions.get(negativePartitionIndex)
+            assertEquals(-42L, partitions.get(negativePartitionIndex)
                 .columns.get("distance").max.asLong());
         }
     }

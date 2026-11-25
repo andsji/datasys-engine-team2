@@ -37,12 +37,13 @@ public final class Engine {
             Path dataDirectory = Path.of(System.getProperty("datasys.dataDirectory", "data"));
             int maxRowsPerPartition = Integer.parseInt(
                     System.getProperty("datasys.maxRowsPerPartition", "1000"));
-            StatementExecutor executor = new StatementExecutor(
-                    new StorageEngine(dataDirectory, maxRowsPerPartition));
-            for (StatementExecutor.ExecutionResult result : executor.executeSql(sql)) {
-                if (result.statement() instanceof Statement.SelectStatement) {
-                    for (Object[] row : result.rows()) {
-                        printCsvRow(row);
+            try (StorageEngine storageEngine = new StorageEngine(dataDirectory, maxRowsPerPartition)) {
+                StatementExecutor executor = new StatementExecutor(storageEngine);
+                for (StatementExecutor.ExecutionResult result : executor.executeSql(sql)) {
+                    if (result.statement() instanceof Statement.SelectStatement) {
+                        for (Object[] row : result.rows()) {
+                            printCsvRow(row);
+                        }
                     }
                 }
             }
