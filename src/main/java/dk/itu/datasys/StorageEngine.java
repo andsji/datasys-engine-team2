@@ -39,6 +39,8 @@ public class StorageEngine implements AutoCloseable {
     private final int maxRowsPerPartition;
     private ScanStats lastScanStats = new ScanStats(0, 0, 0);
     private boolean closed;
+    /** Runs before commit validation. Production leaves this as a no-op. */
+    Runnable beforeCommit = () -> { };
     
 
     /** All persistent state (catalog + data files) lives under this directory. */
@@ -175,73 +177,90 @@ public class StorageEngine implements AutoCloseable {
 
     public void copyFile(String tableName, String csvFilePath) {
         long startNanos = System.nanoTime();
+        ensureOpen();
+        TableVersions table = catalogFile.tables.get(tableName);
+        if (table == null) {
+            throw new IllegalArgumentException("Unknown table: " + tableName);
+        }
+        Snapshot snapshot = table.snapshot();
+        Path source = Path.of(csvFilePath);
+        Path dataDirectoryPath = dataDirectory.resolve("data");
+        Path dataFile = dataDirectoryPath.resolve(tableName + ".bin");
+        List<Partition> appendedPartitions = new ArrayList<>();
+        int rowCount = 0;
+
+        try {
+            Files.createDirectories(dataDirectoryPath);
+            ensureDataFileHeader(dataFile);
+            try (BufferedReader reader = Files.newBufferedReader(source, StandardCharsets.US_ASCII)) {
+                List<Object[]> rows = new ArrayList<>(maxRowsPerPartition);
+                String line;
+                int lineNumber = 0;
+                while ((line = reader.readLine()) != null) {
+                    lineNumber++;
+                    rows.add(parseCsvLine(line, table.getColumns(), csvFilePath, lineNumber));
+                    if (rows.size() == maxRowsPerPartition) {
+                        appendPartition(dataFile, rows, tableName, table.getColumns(), appendedPartitions);
+                        rowCount += rows.size();
+                        rows.clear();
+                    }
+                }
+                if (!rows.isEmpty()) {
+                    appendPartition(dataFile, rows, tableName, table.getColumns(), appendedPartitions);
+                    rowCount += rows.size();
+                }
+            }
+
+            List<Partition> nextPartitions = new ArrayList<>(snapshot.partitions());
+            nextPartitions.addAll(appendedPartitions);
+            beforeCommit.run();
+            int version;
+            synchronized (this) {
+                ensureOpen();
+                if (rowCount > 0) {
+                    table.setDataFile(dataDirectory.relativize(dataFile).toString());
+                }
+                version = table.commit(snapshot.version(), nextPartitions);
+            }
+
+            if (rowCount == 0) {
+                LOGGER.debug("statement=COPY table={} rows=0 partitions=0 version={} durationMs={}",
+                        tableName, version, LogDuration.formatMillisSince(startNanos));
+            } else {
+                LOGGER.debug("statement=COPY table={} rows={} partitions={} version={} durationMs={}",
+                        tableName, rowCount, appendedPartitions.size(), version,
+                        LogDuration.formatMillisSince(startNanos));
+            }
+        } catch (IllegalArgumentException exception) {
+            throw exception;
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Could not copy " + csvFilePath, exception);
+        }
+    }
+
+    private void ensureDataFileHeader(Path dataFile) throws IOException {
         synchronized (this) {
             ensureOpen();
-            TableVersions table = catalogFile.tables.get(tableName);
-            if (table == null) {
-                throw new IllegalArgumentException("Unknown table: " + tableName);
+            if (!Files.exists(dataFile) || Files.size(dataFile) == 0) {
+                try (DataOutputStream output = new DataOutputStream(new BufferedOutputStream(
+                        Files.newOutputStream(dataFile, StandardOpenOption.CREATE,
+                                StandardOpenOption.WRITE, StandardOpenOption.APPEND)))) {
+                    output.writeInt(FILE_MAGIC);
+                    output.writeInt(FILE_VERSION);
+                }
             }
-            Snapshot snapshot = table.snapshot();
+        }
+    }
 
-            Path source = Path.of(csvFilePath);
-            Path dataDirectoryPath = dataDirectory.resolve("data");
-            Path dataFile = dataDirectoryPath.resolve(tableName + ".bin");
-            List<Partition> appendedPartitions = new ArrayList<>();
-            int rowCount = 0;
-
-            try {
-                Files.createDirectories(dataDirectoryPath);
-                boolean createHeader = !Files.exists(dataFile) || Files.size(dataFile) == 0;
-                try (BufferedReader reader = Files.newBufferedReader(source, StandardCharsets.US_ASCII);
-                        DataOutputStream output = new DataOutputStream(
-                                new BufferedOutputStream(Files.newOutputStream(dataFile,
-                                        StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                                        StandardOpenOption.APPEND)))) {
-                    if (createHeader) {
-                        output.writeInt(FILE_MAGIC);
-                        output.writeInt(FILE_VERSION);
-                    }
-                    long bytesWritten = createHeader ? 8L : Files.size(dataFile);
-                    List<Object[]> rows = new ArrayList<>(maxRowsPerPartition);
-                    String line;
-                    int lineNumber = 0;
-                    while ((line = reader.readLine()) != null) {
-                        lineNumber++;
-                        Object[] row = parseCsvLine(line, table.getColumns(), csvFilePath, lineNumber);
-                        rows.add(row);
-                        if (rows.size() == maxRowsPerPartition) {
-                                bytesWritten = writePartition(output, rows, tableName, table.getColumns(),
-                                    appendedPartitions, bytesWritten);
-                            rowCount += rows.size();
-                            rows.clear();
-                        }
-                    }
-                    if (!rows.isEmpty()) {
-                        bytesWritten = writePartition(output, rows, tableName, table.getColumns(),
-                                appendedPartitions, bytesWritten);
-                        rowCount += rows.size();
-                    }
-                }
-
-                if (rowCount == 0) {
-                    int version = table.commit(snapshot.version(), snapshot.partitions());
-                    LOGGER.debug("statement=COPY table={} rows=0 partitions=0 version={} durationMs={}",
-                        tableName, version, LogDuration.formatMillisSince(startNanos));
-                    return;
-                }
-
-                List<Partition> nextPartitions = new ArrayList<>(snapshot.partitions());
-                nextPartitions.addAll(appendedPartitions);
-                table.setDataFile(dataDirectory.relativize(dataFile).toString());
-                int version = table.commit(snapshot.version(), nextPartitions);
-
-                LOGGER.debug("statement=COPY table={} rows={} partitions={} version={} durationMs={}",
-                    tableName, rowCount, appendedPartitions.size(), version,
-                        LogDuration.formatMillisSince(startNanos));
-            } catch (IllegalArgumentException exception) {
-                throw exception;
-            } catch (IOException exception) {
-                throw new IllegalArgumentException("Could not copy " + csvFilePath, exception);
+    private void appendPartition(Path dataFile, List<Object[]> rows, String tableName,
+            List<ColumnSpec> columns, List<Partition> partitions) throws IOException {
+        synchronized (this) {
+            ensureOpen();
+            long offset = Files.size(dataFile);
+            try (DataOutputStream output = new DataOutputStream(new BufferedOutputStream(
+                    Files.newOutputStream(dataFile, StandardOpenOption.CREATE,
+                            StandardOpenOption.WRITE, StandardOpenOption.APPEND)))) {
+                writePartition(output, rows, tableName, columns, partitions, offset);
             }
         }
     }
@@ -565,98 +584,89 @@ public class StorageEngine implements AutoCloseable {
 
     public void deleteRows(String tableName, Predicate predicate) {
         long startNanos = System.nanoTime();
-        synchronized (this) {
-            ensureOpen();
-            TableVersions tableVersions = catalogFile.tables.get(tableName);
-            if (tableVersions == null) {
-                throw new IllegalArgumentException("Unknown table: " + tableName);
-            }
-            Snapshot snapshot = tableVersions.snapshot();
-            TableDefinition table = tableDefinition(snapshot);
-            if (table.dataFile == null || table.partitions.isEmpty()) {
-                int version = tableVersions.commit(snapshot.version(), table.partitions);
-            LOGGER.debug("statement=DELETE table={} rowsDeleted=0 partitionsRewritten=0 partitionsCarried={} version={} durationMs={}",
-                tableName, table.partitions.size(), version, LogDuration.formatMillisSince(startNanos));
-                return;
-            }
+        ensureOpen();
+        TableVersions tableVersions = catalogFile.tables.get(tableName);
+        if (tableVersions == null) {
+            throw new IllegalArgumentException("Unknown table: " + tableName);
+        }
+        Snapshot snapshot = tableVersions.snapshot();
+        TableDefinition table = tableDefinition(snapshot);
+        List<Partition> replacementPartitions = new ArrayList<>();
+        int rowsDeleted = 0;
+        int partitionsRewritten = 0;
+        int partitionsCarried = 0;
 
+        if (table.dataFile == null || table.partitions.isEmpty()) {
+            replacementPartitions.addAll(table.partitions);
+        } else {
             Path dataFile = dataDirectory.resolve(table.dataFile);
-            List<Partition> replacementPartitions = new ArrayList<>();
-            int rowsDeleted = 0;
-            int partitionsRewritten = 0;
-            int partitionsCarried = 0;
-
             try {
-                try (RandomAccessFile input = new RandomAccessFile(dataFile.toFile(), "r");
-                        DataOutputStream output = new DataOutputStream(new BufferedOutputStream(
-                                Files.newOutputStream(dataFile, StandardOpenOption.CREATE,
-                                        StandardOpenOption.WRITE, StandardOpenOption.APPEND)))) {
-                    validateFileHeader(input, dataFile);
-                    long appendOffset = Files.size(dataFile);
+                for (Partition partition : table.partitions) {
+                    boolean mayContainMatch = predicate == null;
+                    if (predicate != null) {
+                        int columnIndex = findColumnIndex(table.columns, predicate.columnName());
+                        if (columnIndex < 0) {
+                            throw new IllegalArgumentException("Unknown column: " + predicate.columnName());
+                        }
+                        ColumnType columnType = table.columns.get(columnIndex).type();
+                        validateConstant(columnType, predicate.constant());
+                        ColumnStats stats = partition.columns.get(predicate.columnName());
+                        if (stats == null) {
+                            throw new IllegalStateException("Missing statistics for column " + predicate.columnName());
+                        }
+                        mayContainMatch = !cannotMatch(columnType, predicate.comparison(), predicate.constant(),
+                                jsonValue(stats.min, columnType), jsonValue(stats.max, columnType));
+                    }
 
-                    for (Partition partition : table.partitions) {
-                        boolean mayContainMatch = predicate == null;
+                    if (!mayContainMatch) {
+                        replacementPartitions.add(partition);
+                        partitionsCarried++;
+                        continue;
+                    }
+
+                    List<Object[]> rows = readPartitionRows(table, partition);
+                    List<Object[]> retained = new ArrayList<>();
+                    int columnIndex = predicate == null ? -1
+                            : findColumnIndex(table.columns, predicate.columnName());
+                    for (Object[] row : rows) {
+                        boolean matchesPredicate = predicate == null;
                         if (predicate != null) {
-                            int columnIndex = findColumnIndex(table.columns, predicate.columnName());
-                            if (columnIndex < 0) {
-                                throw new IllegalArgumentException("Unknown column: " + predicate.columnName());
-                            }
                             ColumnType columnType = table.columns.get(columnIndex).type();
-                            validateConstant(columnType, predicate.constant());
-                            ColumnStats stats = partition.columns.get(predicate.columnName());
-                            if (stats == null) {
-                                throw new IllegalStateException("Missing statistics for column " + predicate.columnName());
-                            }
-                            mayContainMatch = !cannotMatch(columnType, predicate.comparison(), predicate.constant(),
-                                    jsonValue(stats.min, columnType), jsonValue(stats.max, columnType));
+                            matchesPredicate = matches(columnType, predicate.comparison(),
+                                    row[columnIndex], predicate.constant());
                         }
-
-                        if (!mayContainMatch) {
-                            replacementPartitions.add(partition);
-                            partitionsCarried++;
-                            continue;
-                        }
-
-                        List<Object[]> rows = readPartitionRows(table, partition);
-                        List<Object[]> retained = new ArrayList<>();
-                        int columnIndex = predicate == null ? -1
-                                : findColumnIndex(table.columns, predicate.columnName());
-                        for (Object[] row : rows) {
-                            boolean matchesPredicate = predicate == null;
-                            if (predicate != null) {
-                                ColumnType columnType = table.columns.get(columnIndex).type();
-                                matchesPredicate = matches(columnType, predicate.comparison(),
-                                        row[columnIndex], predicate.constant());
-                            }
-                            if (matchesPredicate) {
-                                rowsDeleted++;
-                            } else {
-                                retained.add(row);
-                            }
-                        }
-
-                        if (retained.size() == rows.size()) {
-                            replacementPartitions.add(partition);
-                            partitionsCarried++;
+                        if (matchesPredicate) {
+                            rowsDeleted++;
                         } else {
-                            partitionsRewritten++;
-                            for (int start = 0; start < retained.size(); start += maxRowsPerPartition) {
-                                int end = Math.min(start + maxRowsPerPartition, retained.size());
-                                appendOffset = writePartition(output, retained.subList(start, end), tableName,
-                                        table.columns, replacementPartitions, appendOffset);
-                            }
+                            retained.add(row);
+                        }
+                    }
+
+                    if (retained.size() == rows.size()) {
+                        replacementPartitions.add(partition);
+                        partitionsCarried++;
+                    } else {
+                        partitionsRewritten++;
+                        for (int start = 0; start < retained.size(); start += maxRowsPerPartition) {
+                            int end = Math.min(start + maxRowsPerPartition, retained.size());
+                            appendPartition(dataFile, retained.subList(start, end), tableName,
+                                    table.columns, replacementPartitions);
                         }
                     }
                 }
-
-                int version = tableVersions.commit(snapshot.version(), replacementPartitions);
-
-                LOGGER.debug("statement=DELETE table={} rowsDeleted={} partitionsRewritten={} partitionsCarried={} version={} durationMs={}",
-                        tableName, rowsDeleted, partitionsRewritten, partitionsCarried,
-                    version, LogDuration.formatMillisSince(startNanos));
             } catch (IOException exception) {
                 throw new IllegalStateException("Could not delete rows from " + tableName, exception);
             }
         }
+
+        beforeCommit.run();
+        int version;
+        synchronized (this) {
+            ensureOpen();
+            version = tableVersions.commit(snapshot.version(), replacementPartitions);
+        }
+        LOGGER.debug("statement=DELETE table={} rowsDeleted={} partitionsRewritten={} partitionsCarried={} version={} durationMs={}",
+                tableName, rowsDeleted, partitionsRewritten, partitionsCarried,
+                version, LogDuration.formatMillisSince(startNanos));
     }
 }
