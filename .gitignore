@@ -7,3 +7,4 @@ dependency-reduced-pom.xml
 /experiment/script/aqi-data.*
 experiment/.DS_Store
 experiment/seed/*
+.github/*

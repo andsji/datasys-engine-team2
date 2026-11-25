@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import dk.itu.datasys.Specifications.*;
 import dk.itu.datasys.Statement.Predicate;
 import dk.itu.datasys.Statement.SelectStatement;
+import dk.itu.datasys.operators.Operator;
 
 public class StorageEngine {
 
@@ -385,8 +386,35 @@ public class StorageEngine {
         if (comparison == null) {
             throw new IllegalArgumentException("Comparison must not be null");
         }
-        return new StatementExecutor(this).execute(new Statement.SelectStatement(tableName,
-                Optional.of(new Statement.Predicate(columnName, comparison, constant))));
+        return select(new SelectStatement(tableName,
+                Optional.of(new Predicate(columnName, comparison, constant))));
+    }
+
+    public List<Object[]> select(SelectStatement statement) {
+        new Binder(this).bind(statement);
+        long startNanos = System.nanoTime();
+        TableDefinition snapshot = tableDefinition(statement.tableName());
+        List<Object[]> rows = collectOperatorRows(new Planner(this).plan(statement));
+        String durationMs = LogDuration.formatMillisSince(startNanos);
+        ScanStats scanStats = getLastScanStats();
+        LOGGER.debug("statement=SELECT table={} rowsOut={} partitionsRead={} partitionsPruned={} version={} durationMs={}",
+                statement.tableName(), rows.size(), scanStats.partitionsRead(),
+                scanStats.partitionsPruned(), snapshot.version, durationMs);
+        return rows;
+    }
+
+    private List<Object[]> collectOperatorRows(Operator root) {
+        List<Object[]> rows = new ArrayList<>();
+        root.open();
+        try {
+            Object[] row;
+            while ((row = root.next()) != null) {
+                rows.add(row);
+            }
+        } finally {
+            root.close();
+        }
+        return rows;
     }
 
     public int findColumnIndex(List<ColumnSpec> columns, String columnName) {
