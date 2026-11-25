@@ -6,7 +6,6 @@ import static dk.itu.datasys.Specifications.ColumnType.STRING;
 import static dk.itu.datasys.Specifications.Comparison.EQUALS;
 import static dk.itu.datasys.Specifications.Comparison.GREATER_THAN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -18,12 +17,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -132,39 +125,26 @@ class VersioningIntegrationTests {
         Files.writeString(winnerCsv, "B,20,2.0\n");
         engine.copyFile("trips", initialCsv.toString());
 
-        CountDownLatch parked = new CountDownLatch(1);
-        CountDownLatch winnerDone = new CountDownLatch(1);
+        StatementExecutor sql = new StatementExecutor(engine);
         engine.beforeCommit = () -> {
-            parked.countDown();
-            awaitLatch(winnerDone, "winner to commit");
+            engine.beforeCommit = () -> { };
+            sql.executeSql("COPY trips FROM '"
+                    + winnerCsv.toAbsolutePath().normalize().toString().replace('\\', '/') + "';");
         };
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            Future<?> loser = executor.submit(() -> engine.deleteRows(
-                    "trips", new Predicate("city", EQUALS, "A")));
+            assertThrows(Catalog.ConflictException.class,
+                () -> sql.executeSql("DELETE FROM trips WHERE city = 'A';"));
 
-            assertTrue(parked.await(5, TimeUnit.SECONDS),
-                    "DELETE did not park immediately before commit");
-            engine.beforeCommit = () -> { };
-            engine.copyFile("trips", winnerCsv.toString());
-            winnerDone.countDown();
-
-            ExecutionException failure = assertThrows(ExecutionException.class,
-                    () -> loser.get(5, TimeUnit.SECONDS));
-            assertInstanceOf(Catalog.ConflictException.class, failure.getCause());
-
-            assertEquals(2L, engine.tableVersion("trips"));
+            assertEquals(2, engine.snapshot("trips").version());
             assertEquals(List.of("A", "B"), engine.select("trips", "distance", GREATER_THAN, -1L)
-                    .stream().map(row -> (String) row[0]).toList());
+                .stream().map(row -> (String) row[0]).toList());
 
-            engine.deleteRows("trips", new Predicate("city", EQUALS, "A"));
-            assertEquals(3L, engine.tableVersion("trips"));
+            sql.executeSql("DELETE FROM trips WHERE city = 'A';");
+            assertEquals(3, engine.snapshot("trips").version());
             assertEquals(List.of("B"), engine.select("trips", "distance", GREATER_THAN, -1L)
-                    .stream().map(row -> (String) row[0]).toList());
+                .stream().map(row -> (String) row[0]).toList());
         } finally {
-            winnerDone.countDown();
-            executor.shutdownNow();
             engine.close();
         }
     }
@@ -181,32 +161,21 @@ class VersioningIntegrationTests {
         Files.writeString(winnerCsv, "B,20,2.0\n");
         engine.copyFile("trips", initialCsv.toString());
 
-        CountDownLatch parked = new CountDownLatch(1);
-        CountDownLatch winnerDone = new CountDownLatch(1);
+        StatementExecutor sql = new StatementExecutor(engine);
         engine.beforeCommit = () -> {
-            parked.countDown();
-            awaitLatch(winnerDone, "winner COPY to commit");
+            engine.beforeCommit = () -> { };
+            sql.executeSql("COPY trips FROM '"
+                    + winnerCsv.toAbsolutePath().normalize().toString().replace('\\', '/') + "';");
         };
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            Future<?> loser = executor.submit(() -> engine.copyFile("trips", parkedCsv.toString()));
-
-            assertTrue(parked.await(5, TimeUnit.SECONDS),
-                    "first COPY did not park immediately before commit");
-            engine.beforeCommit = () -> { };
-            engine.copyFile("trips", winnerCsv.toString());
-            winnerDone.countDown();
-
-            ExecutionException failure = assertThrows(ExecutionException.class,
-                    () -> loser.get(5, TimeUnit.SECONDS));
-            assertInstanceOf(Catalog.ConflictException.class, failure.getCause());
-            assertEquals(2L, engine.tableVersion("trips"));
+            assertThrows(Catalog.ConflictException.class,
+                    () -> sql.executeSql("COPY trips FROM '"
+                            + parkedCsv.toAbsolutePath().normalize().toString().replace('\\', '/') + "';"));
+            assertEquals(2, engine.snapshot("trips").version());
             assertEquals(List.of("A", "B"), engine.select("trips", "distance", GREATER_THAN, -1L)
                     .stream().map(row -> (String) row[0]).toList());
         } finally {
-            winnerDone.countDown();
-            executor.shutdownNow();
             engine.close();
         }
     }
@@ -240,14 +209,4 @@ class VersioningIntegrationTests {
         engine.close();
     }
 
-    private static void awaitLatch(CountDownLatch latch, String description) {
-        try {
-            if (!latch.await(5, TimeUnit.SECONDS)) {
-                throw new AssertionError("Timed out waiting for " + description);
-            }
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new AssertionError("Interrupted while waiting for " + description, exception);
-        }
-    }
 }
