@@ -383,15 +383,6 @@ public class StorageEngine implements AutoCloseable {
         }
     }
 
-    private void moveDataFile(Path source, Path target) throws IOException {
-        try {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
-        } catch (java.nio.file.AtomicMoveNotSupportedException exception) {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
     public record ScanStats(int partitionsTotal, int partitionsRead, int partitionsPruned) {
     }
 
