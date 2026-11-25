@@ -6,6 +6,7 @@ import static dk.itu.datasys.Specifications.ColumnType.STRING;
 import static dk.itu.datasys.Specifications.Comparison.EQUALS;
 import static dk.itu.datasys.Specifications.Comparison.GREATER_THAN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -14,13 +15,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import dk.itu.datasys.Specifications.ColumnSpec;
 import dk.itu.datasys.Statement.Predicate;
+import dk.itu.datasys.Statement.SelectStatement;
+import dk.itu.datasys.operators.Operator;
 
 class VersioningIntegrationTests {
     private static final List<ColumnSpec> SCHEMA = List.of(
@@ -109,5 +120,134 @@ class VersioningIntegrationTests {
         restarted.copyFile("trips", third.toString());
         assertEquals(3L, restarted.tableVersion("trips"));
         restarted.close();
+    }
+
+    @Test
+    void competingDeleteAndCopyUseSnapshotAndRetryAfterConflict() throws Exception {
+        StorageEngine engine = new StorageEngine(dataDirectory, 2);
+        engine.createTable("trips", SCHEMA);
+        Path initialCsv = dataDirectory.resolve("initial.csv");
+        Path winnerCsv = dataDirectory.resolve("winner.csv");
+        Files.writeString(initialCsv, "A,10,1.0\n");
+        Files.writeString(winnerCsv, "B,20,2.0\n");
+        engine.copyFile("trips", initialCsv.toString());
+
+        CountDownLatch parked = new CountDownLatch(1);
+        CountDownLatch winnerDone = new CountDownLatch(1);
+        engine.beforeCommit = () -> {
+            parked.countDown();
+            awaitLatch(winnerDone, "winner to commit");
+        };
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> loser = executor.submit(() -> engine.deleteRows(
+                    "trips", new Predicate("city", EQUALS, "A")));
+
+            assertTrue(parked.await(5, TimeUnit.SECONDS),
+                    "DELETE did not park immediately before commit");
+            engine.beforeCommit = () -> { };
+            engine.copyFile("trips", winnerCsv.toString());
+            winnerDone.countDown();
+
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                    () -> loser.get(5, TimeUnit.SECONDS));
+            assertInstanceOf(Catalog.ConflictException.class, failure.getCause());
+
+            assertEquals(2L, engine.tableVersion("trips"));
+            assertEquals(List.of("A", "B"), engine.select("trips", "distance", GREATER_THAN, -1L)
+                    .stream().map(row -> (String) row[0]).toList());
+
+            engine.deleteRows("trips", new Predicate("city", EQUALS, "A"));
+            assertEquals(3L, engine.tableVersion("trips"));
+            assertEquals(List.of("B"), engine.select("trips", "distance", GREATER_THAN, -1L)
+                    .stream().map(row -> (String) row[0]).toList());
+        } finally {
+            winnerDone.countDown();
+            executor.shutdownNow();
+            engine.close();
+        }
+    }
+
+    @Test
+    void competingCopiesConflictAndOnlyWinnerRowsAreVisible() throws Exception {
+        StorageEngine engine = new StorageEngine(dataDirectory, 2);
+        engine.createTable("trips", SCHEMA);
+        Path initialCsv = dataDirectory.resolve("initial-copy.csv");
+        Path parkedCsv = dataDirectory.resolve("parked-copy.csv");
+        Path winnerCsv = dataDirectory.resolve("winner-copy.csv");
+        Files.writeString(initialCsv, "A,10,1.0\n");
+        Files.writeString(parkedCsv, "C,30,3.0\n");
+        Files.writeString(winnerCsv, "B,20,2.0\n");
+        engine.copyFile("trips", initialCsv.toString());
+
+        CountDownLatch parked = new CountDownLatch(1);
+        CountDownLatch winnerDone = new CountDownLatch(1);
+        engine.beforeCommit = () -> {
+            parked.countDown();
+            awaitLatch(winnerDone, "winner COPY to commit");
+        };
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> loser = executor.submit(() -> engine.copyFile("trips", parkedCsv.toString()));
+
+            assertTrue(parked.await(5, TimeUnit.SECONDS),
+                    "first COPY did not park immediately before commit");
+            engine.beforeCommit = () -> { };
+            engine.copyFile("trips", winnerCsv.toString());
+            winnerDone.countDown();
+
+            ExecutionException failure = assertThrows(ExecutionException.class,
+                    () -> loser.get(5, TimeUnit.SECONDS));
+            assertInstanceOf(Catalog.ConflictException.class, failure.getCause());
+            assertEquals(2L, engine.tableVersion("trips"));
+            assertEquals(List.of("A", "B"), engine.select("trips", "distance", GREATER_THAN, -1L)
+                    .stream().map(row -> (String) row[0]).toList());
+        } finally {
+            winnerDone.countDown();
+            executor.shutdownNow();
+            engine.close();
+        }
+    }
+
+    @Test
+    void openScanReadsItsPinnedVersionAfterDeleteCommits() throws Exception {
+        StorageEngine engine = new StorageEngine(dataDirectory, 2);
+        engine.createTable("trips", SCHEMA);
+        Path csv = dataDirectory.resolve("snapshot.csv");
+        Files.writeString(csv, "A,10,1.0\nB,20,2.0\n");
+        engine.copyFile("trips", csv.toString());
+
+        Operator scan = new Planner(engine).plan(
+                new SelectStatement("trips", Optional.empty()));
+        scan.open();
+        engine.deleteRows("trips", new Predicate("city", EQUALS, "A"));
+
+        List<String> pinnedRows = new ArrayList<>();
+        try {
+            Object[] row;
+            while ((row = scan.next()) != null) {
+                pinnedRows.add((String) row[0]);
+            }
+        } finally {
+            scan.close();
+        }
+
+        assertEquals(List.of("A", "B"), pinnedRows);
+        assertEquals(List.of("B"), engine.select("trips", "distance", GREATER_THAN, -1L)
+                .stream().map(row -> (String) row[0]).toList());
+        engine.close();
+    }
+
+    private static void awaitLatch(CountDownLatch latch, String description) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Timed out waiting for " + description);
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for " + description, exception);
+        }
     }
 }
