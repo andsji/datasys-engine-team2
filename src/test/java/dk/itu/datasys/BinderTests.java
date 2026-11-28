@@ -17,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import dk.itu.datasys.Specifications.ColumnSpec;
 import dk.itu.datasys.Statement.CopyStatement;
 import dk.itu.datasys.Statement.CreateTableStatement;
+import dk.itu.datasys.Statement.DeleteStatement;
 import dk.itu.datasys.Statement.Predicate;
 import dk.itu.datasys.Statement.SelectStatement;
 
@@ -41,6 +42,11 @@ class BinderTests {
                                 new Predicate("distance", EQUALS, 12L)))));
                 assertDoesNotThrow(() -> binder.bind(
                         new CopyStatement("trips", "trips.csv")));
+                assertDoesNotThrow(() -> binder.bind(
+                        new DeleteStatement("trips", Optional.empty())));
+                assertDoesNotThrow(() -> binder.bind(
+                        new DeleteStatement("trips", Optional.of(
+                                new Predicate("distance", EQUALS, 12L)))));
         }
 
         @Test
@@ -64,5 +70,32 @@ class BinderTests {
                         binder.bind(new CreateTableStatement("other", List.of(
                                 new ColumnSpec("city", STRING),
                                 new ColumnSpec("city", LONG)))));
+                
+                assertThrows(IllegalArgumentException.class, () ->
+                        binder.bind(new DeleteStatement("missing", Optional.empty())));
+
+                assertThrows(IllegalArgumentException.class, () ->
+                        binder.bind(new DeleteStatement("trips", Optional.of(
+                                new Predicate("unknown", EQUALS, 1L)))));
+                
+                assertThrows(IllegalArgumentException.class, () ->
+                        binder.bind(new DeleteStatement("trips", Optional.of(
+                                new Predicate("distance", EQUALS, "x")))));
+        }
+
+        @Test
+        void deleteBindingRejectsUnknownTableColumnAndConstantType() {
+                StorageEngine engine = new StorageEngine(dataDirectory);
+                engine.createTable("trips", SCHEMA);
+                Binder binder = new Binder(engine);
+
+                assertThrows(IllegalArgumentException.class,
+                        () -> binder.bind(new DeleteStatement("missing", Optional.empty())));
+                assertThrows(IllegalArgumentException.class,
+                        () -> binder.bind(new DeleteStatement("trips", Optional.of(
+                                new Predicate("unknown", EQUALS, 1L)))));
+                assertThrows(IllegalArgumentException.class,
+                        () -> binder.bind(new DeleteStatement("trips", Optional.of(
+                                new Predicate("distance", EQUALS, "x")))));
         }
 }
