@@ -9,7 +9,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,8 +19,13 @@ import org.slf4j.LoggerFactory;
 import dk.itu.datasys.Specifications.*;
 import dk.itu.datasys.Statement.Predicate;
 import dk.itu.datasys.Statement.SelectStatement;
+import dk.itu.datasys.operators.Operator;
+import dk.itu.datasys.Catalog.ColumnStats;
+import dk.itu.datasys.Catalog.Partition;
+import dk.itu.datasys.Catalog.Snapshot;
+import dk.itu.datasys.Catalog.TableVersions;
 
-public class StorageEngine {
+public class StorageEngine implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(StorageEngine.class);
     private static final int FILE_MAGIC = 0x44534231;
@@ -30,10 +34,13 @@ public class StorageEngine {
 
     private final Path dataDirectory;
     private final Path catalogPath;
-    private volatile Catalog catalogFile;
+    private final Catalog catalogFile;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final int maxRowsPerPartition;
     private ScanStats lastScanStats = new ScanStats(0, 0, 0);
+    private boolean closed;
+    /** Runs before commit validation. Production leaves this as a no-op. */
+    Runnable beforeCommit = () -> { };
     
 
     /** All persistent state (catalog + data files) lives under this directory. */
@@ -56,14 +63,29 @@ public class StorageEngine {
             } else {
                 this.catalogFile = new Catalog();
             }
+            this.catalogFile.normalize();
         } catch (IOException exception) {
             throw new IllegalStateException("Could not load catalog " + catalogPath, exception);
         }
     }
 
+    @Override
+    public synchronized void close() {
+        if (!closed) {
+            persistCatalog();
+            closed = true;
+        }
+    }
+
+    private void ensureOpen() {
+        if (closed) {
+            throw new IllegalStateException("Storage engine is closed");
+        }
+    }
     public void createTable(String tableName, List<ColumnSpec> columns) throws IllegalArgumentException {
         long startNanos = System.nanoTime();
         synchronized (this) {
+            ensureOpen();
             try {
                 if (tableName == null || tableName.isBlank()) {
                     throw new IllegalArgumentException("Table name must not be blank");
@@ -83,13 +105,10 @@ public class StorageEngine {
                     }
                 }
 
-                Catalog candidate = copyCatalog(catalogFile);
-                candidate.tables.put(tableName, new TableDefinition(columns));
-                persistCatalog(candidate);
-                catalogFile = candidate;
+                catalogFile.tables.put(tableName, new TableVersions(tableName, columns));
                 String durationMs = LogDuration.formatMillisSince(startNanos);
                 LOGGER.debug("statement=CREATE table={} rows=0 partitions=0 version={} durationMs={}",
-                        tableName, candidate.tables.get(tableName).version, durationMs);
+                    tableName, catalogFile.tables.get(tableName).latestVersion(), durationMs);
             } catch (RuntimeException exception) {
                 String durationMs = LogDuration.formatMillisSince(startNanos);
                 LOGGER.error("createTable failed table={} failureType={} durationMs={}",
@@ -101,24 +120,37 @@ public class StorageEngine {
 
     /** The table's schema, in column order. */
     public List<ColumnSpec> schema(String tableName) {
-        TableDefinition table = snapshotTable(tableName);
-        return table == null ? null : List.copyOf(table.columns);
-    }
-
-    synchronized TableDefinition snapshotTable(String tableName) {
-        TableDefinition table = catalogFile.tables.get(tableName);
+        TableVersions table = catalogFile.tables.get(tableName);
         if (table == null) {
             throw new IllegalArgumentException("Unknown table: " + tableName);
         }
-        return immutableTableCopy(table);
+        return table.getColumns();
+    }
+
+    synchronized Snapshot snapshot(String tableName) {
+        TableVersions table = catalogFile.tables.get(tableName);
+        if (table == null) {
+            throw new IllegalArgumentException("Unknown table: " + tableName);
+        }
+        return table.snapshot();
+    }
+
+    synchronized TableDefinition snapshotTable(String tableName) {
+        return tableDefinition(snapshot(tableName));
     }
 
     public TableDefinition tableDefinition(String tableName) {
-        return snapshotTable(tableName);
+        return tableDefinition(snapshot(tableName));
+    }
+
+    synchronized TableDefinition tableDefinition(Snapshot snapshot) {
+        TableVersions table = catalogFile.tables.get(snapshot.name());
+        return new TableDefinition(table.getColumns(), snapshot.version(), table.getDataFile(),
+                snapshot.partitions());
     }
 
     public long tableVersion(String tableName) {
-        return snapshotTable(tableName).version;
+        return snapshot(tableName).version();
     }
 
     void recordScanStats(int partitionsTotal, int partitionsRead) {
@@ -126,10 +158,10 @@ public class StorageEngine {
                 partitionsTotal - partitionsRead);
     }
 
-    private void persistCatalog(Catalog catalog) {
+    private void persistCatalog() {
         Path temporaryCatalog = catalogPath.resolveSibling("catalog.json.tmp");
         try {
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(temporaryCatalog.toFile(), catalog);
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(temporaryCatalog.toFile(), catalogFile);
             Files.move(temporaryCatalog, catalogPath,
                     StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException exception) {
@@ -143,104 +175,92 @@ public class StorageEngine {
         }
     }
 
-    private Catalog copyCatalog(Catalog source) {
-        Catalog copy = new Catalog();
-        for (Map.Entry<String, TableDefinition> entry : source.tables.entrySet()) {
-            copy.tables.put(entry.getKey(), immutableTableCopy(entry.getValue()));
-        }
-        return copy;
-    }
-
-    private TableDefinition immutableTableCopy(TableDefinition source) {
-        TableDefinition copy = new TableDefinition();
-        copy.version = source.version;
-        copy.columns = source.columns == null ? null : new ArrayList<>(source.columns);
-        copy.dataFile = source.dataFile;
-        copy.partitions = new ArrayList<>();
-        if (source.partitions != null) {
-            for (PartitionDefinition partition : source.partitions) {
-                PartitionDefinition partitionCopy = new PartitionDefinition();
-                partitionCopy.offset = partition.offset;
-                partitionCopy.rowCount = partition.rowCount;
-                for (Map.Entry<String, ColumnStats> entry : partition.columns.entrySet()) {
-                    partitionCopy.columns.put(entry.getKey(),
-                            new ColumnStats(entry.getValue().min, entry.getValue().max));
-                }
-                copy.partitions.add(partitionCopy);
-            }
-        }
-        return copy;
-    }
-    
     public void copyFile(String tableName, String csvFilePath) {
         long startNanos = System.nanoTime();
-        synchronized (this) {
-            TableDefinition table = catalogFile.tables.get(tableName);
-            if (table == null) {
-                throw new IllegalArgumentException("Unknown table: " + tableName);
+        ensureOpen();
+        TableVersions table = catalogFile.tables.get(tableName);
+        if (table == null) {
+            throw new IllegalArgumentException("Unknown table: " + tableName);
+        }
+        Snapshot snapshot = table.snapshot();
+        Path source = Path.of(csvFilePath);
+        Path dataDirectoryPath = dataDirectory.resolve("data");
+        Path dataFile = dataDirectoryPath.resolve(tableName + ".bin");
+        List<Partition> appendedPartitions = new ArrayList<>();
+        int rowCount = 0;
+
+        try {
+            Files.createDirectories(dataDirectoryPath);
+            ensureDataFileHeader(dataFile);
+            try (BufferedReader reader = Files.newBufferedReader(source, StandardCharsets.US_ASCII)) {
+                List<Object[]> rows = new ArrayList<>(maxRowsPerPartition);
+                String line;
+                int lineNumber = 0;
+                while ((line = reader.readLine()) != null) {
+                    lineNumber++;
+                    rows.add(parseCsvLine(line, table.getColumns(), csvFilePath, lineNumber));
+                    if (rows.size() == maxRowsPerPartition) {
+                        appendPartition(dataFile, rows, tableName, table.getColumns(), appendedPartitions);
+                        rowCount += rows.size();
+                        rows.clear();
+                    }
+                }
+                if (!rows.isEmpty()) {
+                    appendPartition(dataFile, rows, tableName, table.getColumns(), appendedPartitions);
+                    rowCount += rows.size();
+                }
             }
 
-            Path source = Path.of(csvFilePath);
-            Path dataDirectoryPath = dataDirectory.resolve("data");
-            Path dataFile = dataDirectoryPath.resolve(tableName + ".bin");
-            List<PartitionDefinition> appendedPartitions = new ArrayList<>();
-            int rowCount = 0;
-
-            try {
-                Files.createDirectories(dataDirectoryPath);
-                boolean createHeader = !Files.exists(dataFile) || Files.size(dataFile) == 0;
-                try (BufferedReader reader = Files.newBufferedReader(source, StandardCharsets.US_ASCII);
-                        DataOutputStream output = new DataOutputStream(
-                                new BufferedOutputStream(Files.newOutputStream(dataFile,
-                                        StandardOpenOption.CREATE, StandardOpenOption.WRITE,
-                                        StandardOpenOption.APPEND)))) {
-                    if (createHeader) {
-                        output.writeInt(FILE_MAGIC);
-                        output.writeInt(FILE_VERSION);
-                    }
-                    long bytesWritten = createHeader ? 8L : Files.size(dataFile);
-                    List<Object[]> rows = new ArrayList<>(maxRowsPerPartition);
-                    String line;
-                    int lineNumber = 0;
-                    while ((line = reader.readLine()) != null) {
-                        lineNumber++;
-                        Object[] row = parseCsvLine(line, table.columns, csvFilePath, lineNumber);
-                        rows.add(row);
-                        if (rows.size() == maxRowsPerPartition) {
-                            bytesWritten = writePartition(output, rows, tableName, table.columns,
-                                    appendedPartitions, bytesWritten);
-                            rowCount += rows.size();
-                            rows.clear();
-                        }
-                    }
-                    if (!rows.isEmpty()) {
-                        bytesWritten = writePartition(output, rows, tableName, table.columns,
-                                appendedPartitions, bytesWritten);
-                        rowCount += rows.size();
-                    }
+            List<Partition> nextPartitions = new ArrayList<>(snapshot.partitions());
+            nextPartitions.addAll(appendedPartitions);
+            beforeCommit.run();
+            int version;
+            synchronized (this) {
+                ensureOpen();
+                if (rowCount > 0) {
+                    table.setDataFile(dataDirectory.relativize(dataFile).toString());
                 }
+                version = table.commit(snapshot.version(), nextPartitions);
+            }
 
-                if (rowCount == 0) {
-                    LOGGER.debug("statement=COPY table={} rows=0 partitions=0 version={} durationMs={}",
-                            tableName, table.version, LogDuration.formatMillisSince(startNanos));
-                    return;
-                }
-
-                Catalog candidate = copyCatalog(catalogFile);
-                TableDefinition candidateTable = candidate.tables.get(tableName);
-                candidateTable.dataFile = dataDirectory.relativize(dataFile).toString();
-                candidateTable.partitions.addAll(appendedPartitions);
-                candidateTable.version++;
-                persistCatalog(candidate);
-                catalogFile = candidate;
-
+            if (rowCount == 0) {
+                LOGGER.debug("statement=COPY table={} rows=0 partitions=0 version={} durationMs={}",
+                        tableName, version, LogDuration.formatMillisSince(startNanos));
+            } else {
                 LOGGER.debug("statement=COPY table={} rows={} partitions={} version={} durationMs={}",
-                        tableName, rowCount, appendedPartitions.size(), candidateTable.version,
+                        tableName, rowCount, appendedPartitions.size(), version,
                         LogDuration.formatMillisSince(startNanos));
-            } catch (IllegalArgumentException exception) {
-                throw exception;
-            } catch (IOException exception) {
-                throw new IllegalArgumentException("Could not copy " + csvFilePath, exception);
+            }
+        } catch (IllegalArgumentException exception) {
+            throw exception;
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("Could not copy " + csvFilePath, exception);
+        }
+    }
+
+    private void ensureDataFileHeader(Path dataFile) throws IOException {
+        synchronized (this) {
+            ensureOpen();
+            if (!Files.exists(dataFile) || Files.size(dataFile) == 0) {
+                try (DataOutputStream output = new DataOutputStream(new BufferedOutputStream(
+                        Files.newOutputStream(dataFile, StandardOpenOption.CREATE,
+                                StandardOpenOption.WRITE, StandardOpenOption.APPEND)))) {
+                    output.writeInt(FILE_MAGIC);
+                    output.writeInt(FILE_VERSION);
+                }
+            }
+        }
+    }
+
+    private void appendPartition(Path dataFile, List<Object[]> rows, String tableName,
+            List<ColumnSpec> columns, List<Partition> partitions) throws IOException {
+        synchronized (this) {
+            ensureOpen();
+            long offset = Files.size(dataFile);
+            try (DataOutputStream output = new DataOutputStream(new BufferedOutputStream(
+                    Files.newOutputStream(dataFile, StandardOpenOption.CREATE,
+                            StandardOpenOption.WRITE, StandardOpenOption.APPEND)))) {
+                writePartition(output, rows, tableName, columns, partitions, offset);
             }
         }
     }
@@ -273,12 +293,10 @@ public class StorageEngine {
         return row;
     }
 
-        public long writePartition(DataOutputStream output, List<Object[]> rows, String tableName,
-            List<ColumnSpec> columns, List<PartitionDefinition> partitions, long offset)
+    public long writePartition(DataOutputStream output, List<Object[]> rows, String tableName,
+            List<ColumnSpec> columns, List<Partition> partitions, long offset)
             throws IOException {
-        PartitionDefinition partition = new PartitionDefinition();
-        partition.offset = offset;
-        partition.rowCount = rows.size();
+        Map<String, ColumnStats> partitionColumns = new LinkedHashMap<>();
         output.writeInt(rows.size());
         long bytesWritten = offset + Integer.BYTES;
 
@@ -298,12 +316,12 @@ public class StorageEngine {
             MinMax minMax = minMax(column.type(), values);
             Object min = minMax.min();
             Object max = minMax.max();
-            partition.columns.put(column.name(), new ColumnStats(
+                partitionColumns.put(column.name(), new ColumnStats(
                     objectMapper.valueToTree(min), objectMapper.valueToTree(max)));
                 LOGGER.debug("table={} partition={} column={} min={} max={}",
                     tableName, partitions.size(), column.name(), min, max);
         }
-        partitions.add(partition);
+        partitions.add(new Partition(offset, rows.size(), partitionColumns));
         return bytesWritten;
     }
 
@@ -365,15 +383,6 @@ public class StorageEngine {
         }
     }
 
-    private void moveDataFile(Path source, Path target) throws IOException {
-        try {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
-        } catch (java.nio.file.AtomicMoveNotSupportedException exception) {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
     public record ScanStats(int partitionsTotal, int partitionsRead, int partitionsPruned) {
     }
 
@@ -385,8 +394,35 @@ public class StorageEngine {
         if (comparison == null) {
             throw new IllegalArgumentException("Comparison must not be null");
         }
-        return new StatementExecutor(this).execute(new Statement.SelectStatement(tableName,
-                Optional.of(new Statement.Predicate(columnName, comparison, constant))));
+        return select(new SelectStatement(tableName,
+                Optional.of(new Predicate(columnName, comparison, constant))));
+    }
+
+    public List<Object[]> select(SelectStatement statement) {
+        long startNanos = System.nanoTime();
+        Snapshot snapshot = snapshot(statement.tableName());
+        new Binder(this).bind(statement);
+        List<Object[]> rows = collectOperatorRows(new Planner(this).plan(statement, snapshot));
+        String durationMs = LogDuration.formatMillisSince(startNanos);
+        ScanStats scanStats = getLastScanStats();
+        LOGGER.debug("statement=SELECT table={} rowsOut={} partitionsRead={} partitionsPruned={} version={} durationMs={}",
+                statement.tableName(), rows.size(), scanStats.partitionsRead(),
+            scanStats.partitionsPruned(), snapshot.version(), durationMs);
+        return rows;
+    }
+
+    private List<Object[]> collectOperatorRows(Operator root) {
+        List<Object[]> rows = new ArrayList<>();
+        root.open();
+        try {
+            Object[] row;
+            while ((row = root.next()) != null) {
+                rows.add(row);
+            }
+        } finally {
+            root.close();
+        }
+        return rows;
     }
 
     public int findColumnIndex(List<ColumnSpec> columns, String columnName) {
@@ -419,7 +455,7 @@ public class StorageEngine {
         };
     }
 
-    public void readPartition(RandomAccessFile input, PartitionDefinition partition,
+    public void readPartition(RandomAccessFile input, Partition partition,
             List<ColumnSpec> columns, int predicateColumnIndex, ColumnType predicateType,
             Comparison comparison, Object constant, List<Object[]> result) throws IOException {
         input.seek(partition.offset);
@@ -438,11 +474,11 @@ public class StorageEngine {
         }
     }
 
-    public List<Object[]> readPartitionRows(String tableName, PartitionDefinition partition) {
+    public List<Object[]> readPartitionRows(String tableName, Partition partition) {
         return readPartitionRows(snapshotTable(tableName), partition);
     }
 
-    public List<Object[]> readPartitionRows(TableDefinition table, PartitionDefinition partition) {
+    public List<Object[]> readPartitionRows(TableDefinition table, Partition partition) {
         if (table == null) {
             throw new IllegalArgumentException("Unknown table: " + table);
         }
@@ -519,164 +555,109 @@ public class StorageEngine {
         return catalogFile;
     }
 
-    public static final class Catalog {
-        @JsonProperty("tables")
-        public Map<String, TableDefinition> tables = new LinkedHashMap<>();
-
-        public Catalog() {
-        }
-    }
-
     public static final class TableDefinition {
-        @JsonProperty("version")
         public long version;
 
-        @JsonProperty("columns")
         public List<ColumnSpec> columns;
 
-        @JsonProperty("dataFile")
         public String dataFile;
 
-        @JsonProperty("partitions")
-        public List<PartitionDefinition> partitions = new ArrayList<>();
+        public List<Partition> partitions;
 
-        public TableDefinition() {
-        }
-
-        public TableDefinition(List<ColumnSpec> columns) {
-            this.columns = new ArrayList<>(columns);
-            this.version = 0;
-        }
-    }
-
-    public static final class PartitionDefinition {
-        @JsonProperty("offset")
-        public long offset;
-
-        @JsonProperty("rowCount")
-        public int rowCount;
-
-        @JsonProperty("columns")
-        public Map<String, ColumnStats> columns = new LinkedHashMap<>();
-
-        public PartitionDefinition() {
-        }
-    }
-
-    public static final class ColumnStats {
-        @JsonProperty("min")
-        public JsonNode min;
-
-        @JsonProperty("max")
-        public JsonNode max;
-
-        public ColumnStats() {
-        }
-
-        public ColumnStats(JsonNode min, JsonNode max) {
-            this.min = min;
-            this.max = max;
+        private TableDefinition(List<ColumnSpec> columns, int version, String dataFile,
+                List<Partition> partitions) {
+            this.columns = columns;
+            this.version = version;
+            this.dataFile = dataFile;
+            this.partitions = partitions;
         }
     }
 
     public void deleteRows(String tableName, Predicate predicate) {
         long startNanos = System.nanoTime();
-        synchronized (this) {
-            TableDefinition table = snapshotTable(tableName);
-            if (table.dataFile == null || table.partitions.isEmpty()) {
-                LOGGER.debug("statement=DELETE table={} rowsDeleted=0 partitionsRewritten=0 partitionsCarried={} version={} durationMs={}",
-                        tableName, table.partitions.size(), table.version, LogDuration.formatMillisSince(startNanos));
-                return;
-            }
+        ensureOpen();
+        TableVersions tableVersions = catalogFile.tables.get(tableName);
+        if (tableVersions == null) {
+            throw new IllegalArgumentException("Unknown table: " + tableName);
+        }
+        Snapshot snapshot = tableVersions.snapshot();
+        TableDefinition table = tableDefinition(snapshot);
+        List<Partition> replacementPartitions = new ArrayList<>();
+        int rowsDeleted = 0;
+        int partitionsRewritten = 0;
+        int partitionsCarried = 0;
 
+        if (table.dataFile == null || table.partitions.isEmpty()) {
+            replacementPartitions.addAll(table.partitions);
+        } else {
             Path dataFile = dataDirectory.resolve(table.dataFile);
-            List<PartitionDefinition> replacementPartitions = new ArrayList<>();
-            int rowsDeleted = 0;
-            int partitionsRewritten = 0;
-            int partitionsCarried = 0;
-
             try {
-                try (RandomAccessFile input = new RandomAccessFile(dataFile.toFile(), "r");
-                        DataOutputStream output = new DataOutputStream(new BufferedOutputStream(
-                                Files.newOutputStream(dataFile, StandardOpenOption.CREATE,
-                                        StandardOpenOption.WRITE, StandardOpenOption.APPEND)))) {
-                    validateFileHeader(input, dataFile);
-                    long appendOffset = Files.size(dataFile);
+                for (Partition partition : table.partitions) {
+                    boolean mayContainMatch = predicate == null;
+                    if (predicate != null) {
+                        int columnIndex = findColumnIndex(table.columns, predicate.columnName());
+                        if (columnIndex < 0) {
+                            throw new IllegalArgumentException("Unknown column: " + predicate.columnName());
+                        }
+                        ColumnType columnType = table.columns.get(columnIndex).type();
+                        validateConstant(columnType, predicate.constant());
+                        ColumnStats stats = partition.columns.get(predicate.columnName());
+                        if (stats == null) {
+                            throw new IllegalStateException("Missing statistics for column " + predicate.columnName());
+                        }
+                        mayContainMatch = !cannotMatch(columnType, predicate.comparison(), predicate.constant(),
+                                jsonValue(stats.min, columnType), jsonValue(stats.max, columnType));
+                    }
 
-                    for (PartitionDefinition partition : table.partitions) {
-                        boolean mayContainMatch = predicate == null;
+                    if (!mayContainMatch) {
+                        replacementPartitions.add(partition);
+                        partitionsCarried++;
+                        continue;
+                    }
+
+                    List<Object[]> rows = readPartitionRows(table, partition);
+                    List<Object[]> retained = new ArrayList<>();
+                    int columnIndex = predicate == null ? -1
+                            : findColumnIndex(table.columns, predicate.columnName());
+                    for (Object[] row : rows) {
+                        boolean matchesPredicate = predicate == null;
                         if (predicate != null) {
-                            int columnIndex = findColumnIndex(table.columns, predicate.columnName());
-                            if (columnIndex < 0) {
-                                throw new IllegalArgumentException("Unknown column: " + predicate.columnName());
-                            }
                             ColumnType columnType = table.columns.get(columnIndex).type();
-                            validateConstant(columnType, predicate.constant());
-                            ColumnStats stats = partition.columns.get(predicate.columnName());
-                            if (stats == null) {
-                                throw new IllegalStateException("Missing statistics for column " + predicate.columnName());
-                            }
-                            mayContainMatch = !cannotMatch(columnType, predicate.comparison(), predicate.constant(),
-                                    jsonValue(stats.min, columnType), jsonValue(stats.max, columnType));
+                            matchesPredicate = matches(columnType, predicate.comparison(),
+                                    row[columnIndex], predicate.constant());
                         }
-
-                        if (!mayContainMatch) {
-                            replacementPartitions.add(partition);
-                            partitionsCarried++;
-                            continue;
-                        }
-
-                        List<Object[]> rows = readPartitionRows(table, partition);
-                        List<Object[]> retained = new ArrayList<>();
-                        int columnIndex = predicate == null ? -1
-                                : findColumnIndex(table.columns, predicate.columnName());
-                        for (Object[] row : rows) {
-                            boolean matchesPredicate = predicate == null;
-                            if (predicate != null) {
-                                ColumnType columnType = table.columns.get(columnIndex).type();
-                                matchesPredicate = matches(columnType, predicate.comparison(),
-                                        row[columnIndex], predicate.constant());
-                            }
-                            if (matchesPredicate) {
-                                rowsDeleted++;
-                            } else {
-                                retained.add(row);
-                            }
-                        }
-
-                        if (retained.size() == rows.size()) {
-                            replacementPartitions.add(partition);
-                            partitionsCarried++;
+                        if (matchesPredicate) {
+                            rowsDeleted++;
                         } else {
-                            partitionsRewritten++;
-                            for (int start = 0; start < retained.size(); start += maxRowsPerPartition) {
-                                int end = Math.min(start + maxRowsPerPartition, retained.size());
-                                appendOffset = writePartition(output, retained.subList(start, end), tableName,
-                                        table.columns, replacementPartitions, appendOffset);
-                            }
+                            retained.add(row);
+                        }
+                    }
+
+                    if (retained.size() == rows.size()) {
+                        replacementPartitions.add(partition);
+                        partitionsCarried++;
+                    } else {
+                        partitionsRewritten++;
+                        for (int start = 0; start < retained.size(); start += maxRowsPerPartition) {
+                            int end = Math.min(start + maxRowsPerPartition, retained.size());
+                            appendPartition(dataFile, retained.subList(start, end), tableName,
+                                    table.columns, replacementPartitions);
                         }
                     }
                 }
-
-                if (rowsDeleted == 0) {
-                    LOGGER.debug("statement=DELETE table={} rowsDeleted=0 partitionsRewritten=0 partitionsCarried={} version={} durationMs={}",
-                            tableName, table.partitions.size(), table.version, LogDuration.formatMillisSince(startNanos));
-                    return;
-                }
-
-                Catalog candidate = copyCatalog(catalogFile);
-                TableDefinition candidateTable = candidate.tables.get(tableName);
-                candidateTable.partitions = replacementPartitions;
-                candidateTable.version++;
-                persistCatalog(candidate);
-                catalogFile = candidate;
-
-                LOGGER.debug("statement=DELETE table={} rowsDeleted={} partitionsRewritten={} partitionsCarried={} version={} durationMs={}",
-                        tableName, rowsDeleted, partitionsRewritten, partitionsCarried,
-                        candidateTable.version, LogDuration.formatMillisSince(startNanos));
             } catch (IOException exception) {
                 throw new IllegalStateException("Could not delete rows from " + tableName, exception);
             }
         }
+
+        beforeCommit.run();
+        int version;
+        synchronized (this) {
+            ensureOpen();
+            version = tableVersions.commit(snapshot.version(), replacementPartitions);
+        }
+        LOGGER.debug("statement=DELETE table={} rowsDeleted={} partitionsRewritten={} partitionsCarried={} version={} durationMs={}",
+                tableName, rowsDeleted, partitionsRewritten, partitionsCarried,
+                version, LogDuration.formatMillisSince(startNanos));
     }
 }
